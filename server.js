@@ -115,7 +115,8 @@ async function initWhatsApp(socketId) {
             authStrategy: new LocalAuth({ clientId: socketId, dataPath: './.wwebjs_auth' }),
             puppeteer: {
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
             }
         });
 
