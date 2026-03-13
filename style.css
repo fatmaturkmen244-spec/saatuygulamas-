@@ -1754,7 +1754,7 @@ body.on-break .tab-btn.active {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: none;
+    border: 1px solid var(--border);
     background: var(--bg-glass);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -1763,8 +1763,7 @@ body.on-break .tab-btn.active {
     cursor: pointer;
     z-index: 10;
     opacity: 0;
-    transition: all var(--dur) var(--ease-out);
-    border: 1px solid var(--border);
+    transition: opacity var(--dur) ease, background var(--dur) ease, transform var(--dur) ease;
 }
 
 .clock-section:hover .zoom-toggle-btn,
@@ -1777,10 +1776,10 @@ body.on-break .tab-btn.active {
     background: var(--accent);
     color: #fff;
     border-color: var(--accent);
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
-/* Clock Section needs position relative for zoom button */
+/* Clock Section uses position:relative so children can be absolutely placed */
 .clock-section {
     position: relative;
 }
@@ -1789,70 +1788,56 @@ body.on-break .tab-btn.active {
     position: relative;
 }
 
-/* ── Medium Zoom ── */
+/* ════════════════════════════════════════════════
+   MEDIUM ZOOM  — Saat/Timer ekranın yarısını kaplar
+   Yaklaşım: fixed overlay + scale(1.8) transform
+   ════════════════════════════════════════════════ */
+
+/* Clock — medium */
 .clock-section[data-zoom="medium"] {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1.8);
+    transform-origin: center center;
     z-index: 150;
+    transition: transform 0.35s var(--ease-out), opacity 0.35s ease;
+    animation: zoomFadeIn 0.35s ease;
     background: var(--bg-glass-strong);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    padding: 48px 64px;
-    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
-    animation: zoomIn 0.4s var(--ease-out);
-    width: 50vw;
-    max-width: 500px;
-    min-height: 40vh;
+    padding: 32px 48px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    gap: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
 }
 
-.clock-section[data-zoom="medium"] .analog-clock {
-    width: 220px;
-    height: 220px;
-}
-
-.clock-section[data-zoom="medium"] .digital-time {
-    font-size: 42px;
-}
-
-.clock-section[data-zoom="medium"] .digital-date {
-    font-size: 16px;
-}
-
+/* Timer — medium */
 .timer-section[data-zoom="medium"] {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1.5);
+    transform-origin: center center;
     z-index: 150;
-    width: 50vw;
-    max-width: 520px;
-    animation: zoomIn 0.4s var(--ease-out);
+    animation: zoomFadeIn 0.35s ease;
+    width: auto;
 }
 
 .timer-section[data-zoom="medium"] .timer-card {
-    padding: 36px;
-    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
 }
 
-.timer-section[data-zoom="medium"] .timer-display {
-    width: 260px;
-    height: 260px;
-}
+/* ════════════════════════════════════════════════
+   FULL ZOOM  — Saat/Timer tüm ekranı kaplar
+   Yaklaşım: fixed fullscreen overlay + scale(3.2)
+   ════════════════════════════════════════════════ */
 
-.timer-section[data-zoom="medium"] .timer-value {
-    font-size: 56px;
-}
-
-/* ── Full Zoom ── */
+/* Clock — full */
 .clock-section[data-zoom="full"] {
     position: fixed;
     top: 0;
@@ -1865,25 +1850,30 @@ body.on-break .tab-btn.active {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 32px;
-    animation: zoomIn 0.4s var(--ease-out);
+    gap: 24px;
+    animation: zoomFadeIn 0.3s ease forwards;
     border-radius: 0;
     padding: 40px;
+    border: none;
 }
 
+/* Scale up the clock content — this scales the analog clock, hands, digits—everything */
 .clock-section[data-zoom="full"] .analog-clock {
-    width: 340px;
-    height: 340px;
+    transform: scale(2.8);
+    transform-origin: center center;
+    margin: 60px 0;
 }
 
 .clock-section[data-zoom="full"] .digital-time {
-    font-size: 72px;
+    font-size: 68px;
+    letter-spacing: 4px;
 }
 
 .clock-section[data-zoom="full"] .digital-date {
-    font-size: 22px;
+    font-size: 20px;
 }
 
+/* Timer — full */
 .timer-section[data-zoom="full"] {
     position: fixed;
     top: 0;
@@ -1894,7 +1884,7 @@ body.on-break .tab-btn.active {
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: zoomIn 0.4s var(--ease-out);
+    animation: zoomFadeIn 0.3s ease forwards;
 }
 
 .timer-section[data-zoom="full"] .timer-card {
@@ -1903,50 +1893,65 @@ body.on-break .tab-btn.active {
     max-width: none;
     border-radius: 0;
     border: none;
+    background: var(--bg-base);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--bg-base);
     padding: 40px;
 }
 
+/* Scale timer display for crisp large rendering */
 .timer-section[data-zoom="full"] .timer-display {
-    width: 360px;
-    height: 360px;
+    transform: scale(1.8);
+    transform-origin: center center;
+    margin: 40px 0;
 }
 
 .timer-section[data-zoom="full"] .timer-value {
-    font-size: 80px;
+    font-size: 72px;
 }
 
 .timer-section[data-zoom="full"] .timer-label {
-    font-size: 18px;
+    font-size: 16px;
 }
 
-/* Zoom overlay backdrop */
+/* ── Backdrop ── */
 .zoom-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     z-index: 140;
-    animation: fadeIn 0.3s ease;
+    animation: zoomFadeIn 0.3s ease;
 }
 
-/* Zoom button icon change */
+/* Zoom button always visible when zoomed */
 .clock-section[data-zoom="medium"] .zoom-toggle-btn,
 .clock-section[data-zoom="full"] .zoom-toggle-btn,
 .timer-section[data-zoom="medium"] .zoom-toggle-btn,
 .timer-section[data-zoom="full"] .zoom-toggle-btn {
     opacity: 1;
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
 }
 
-@keyframes zoomIn {
+.clock-section[data-zoom="full"] .zoom-toggle-btn,
+.timer-section[data-zoom="full"] .zoom-toggle-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+}
+
+/* ── Animations ── */
+@keyframes zoomPopIn {
     from {
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.9);
+        transform: translate(-50%, -50%) scale(0.7);
     }
 
     to {
@@ -1955,18 +1960,14 @@ body.on-break .tab-btn.active {
     }
 }
 
-.clock-section[data-zoom="full"] .zoom-toggle-btn {
-    top: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-}
+@keyframes zoomFadeIn {
+    from {
+        opacity: 0;
+    }
 
-.timer-section[data-zoom="full"] .zoom-toggle-btn {
-    top: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes fadeIn {
