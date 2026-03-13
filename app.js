@@ -749,6 +749,24 @@
         // WhatsApp / Gmail
         $('#waBtnConnect')?.addEventListener('click', () => handleWaConnect());
         $('#gmailBtnConnect')?.addEventListener('click', () => handleGmailConnect());
+        // Alarm
+        $('#btnAlarm')?.addEventListener('click', () => openModal('alarmModal'));
+        $('#alarmClose')?.addEventListener('click', () => closeModal('alarmModal'));
+        // World Clock
+        $('#btnWorldClock')?.addEventListener('click', () => openModal('worldClockModal'));
+        $('#worldClockClose')?.addEventListener('click', () => closeModal('worldClockModal'));
+        // ToDo
+        $('#btnTodo')?.addEventListener('click', () => openModal('todoModal'));
+        $('#todoClose')?.addEventListener('click', () => closeModal('todoModal'));
+        // Ambient Sounds
+        $('#btnAmbient')?.addEventListener('click', () => openModal('ambientModal'));
+        $('#ambientClose')?.addEventListener('click', () => closeModal('ambientModal'));
+        // Statistics
+        $('#btnStats')?.addEventListener('click', () => { renderStatsModal(); openModal('statsModal'); });
+        $('#statsClose')?.addEventListener('click', () => closeModal('statsModal'));
+        // Calendar
+        $('#btnCalendar')?.addEventListener('click', () => { renderCalendar(); openModal('calendarModal'); });
+        $('#calendarClose')?.addEventListener('click', () => closeModal('calendarModal'));
         // Close on overlay click / Escape
         $$('.modal-overlay').forEach(o => {
             o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
@@ -782,6 +800,671 @@
         } catch (e) { }
     }
 
+    // ─── 3-Stage Zoom ──────────────────────────────────────────────────────────
+    let zoomBackdrop = null;
+
+    function cycleZoom(sectionId) {
+        const section = $('#' + sectionId);
+        if (!section) return;
+        const current = section.dataset.zoom || 'small';
+        const next = current === 'small' ? 'medium' : current === 'medium' ? 'full' : 'small';
+        section.dataset.zoom = next;
+
+        // Update zoom button icon (+ for zoom in, - for zoom out)
+        const btn = section.querySelector('.zoom-toggle-btn svg');
+        if (btn) {
+            const plusLine = btn.querySelector('line[x1="11"][y1="8"]');
+            const plusLine2 = btn.querySelector('line[x1="8"][y1="11"]');
+            if (next === 'small') {
+                // Show + icon (zoom in)
+                if (plusLine) { plusLine.setAttribute('x1', '11'); plusLine.setAttribute('y1', '8'); plusLine.setAttribute('x2', '11'); plusLine.setAttribute('y2', '14'); }
+                if (plusLine2) { plusLine2.setAttribute('x1', '8'); plusLine2.setAttribute('y1', '11'); plusLine2.setAttribute('x2', '14'); plusLine2.setAttribute('y2', '11'); }
+            } else {
+                // Show - icon (zoom out)
+                if (plusLine) { plusLine.setAttribute('x1', '8'); plusLine.setAttribute('y1', '11'); plusLine.setAttribute('x2', '14'); plusLine.setAttribute('y2', '11'); }
+                if (plusLine2) { plusLine2.setAttribute('x1', '8'); plusLine2.setAttribute('y1', '11'); plusLine2.setAttribute('x2', '14'); plusLine2.setAttribute('y2', '11'); }
+            }
+        }
+
+        // Manage backdrop
+        if (next === 'medium') {
+            if (!zoomBackdrop) {
+                zoomBackdrop = document.createElement('div');
+                zoomBackdrop.className = 'zoom-backdrop';
+                zoomBackdrop.addEventListener('click', () => {
+                    // Reset all zooms
+                    resetAllZooms();
+                });
+                document.body.appendChild(zoomBackdrop);
+            }
+        } else if (next === 'full') {
+            // Keep backdrop but make it darker
+            if (zoomBackdrop) zoomBackdrop.style.background = 'rgba(0,0,0,0.8)';
+        } else {
+            removeZoomBackdrop();
+        }
+    }
+
+    function resetAllZooms() {
+        const clockSection = $('#clockSection');
+        const timerSection = $('#timerSection');
+        if (clockSection) clockSection.dataset.zoom = 'small';
+        if (timerSection) timerSection.dataset.zoom = 'small';
+        removeZoomBackdrop();
+    }
+
+    function removeZoomBackdrop() {
+        if (zoomBackdrop) {
+            zoomBackdrop.remove();
+            zoomBackdrop = null;
+        }
+    }
+
+    function initZoom() {
+        // Clock zoom button
+        $('#clockZoomBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cycleZoom('clockSection');
+        });
+
+        // Timer zoom button
+        $('#timerZoomBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cycleZoom('timerSection');
+        });
+
+        // ESC key to reset zooms
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const clockZoom = $('#clockSection')?.dataset.zoom;
+                const timerZoom = $('#timerSection')?.dataset.zoom;
+                if (clockZoom !== 'small' || timerZoom !== 'small') {
+                    e.stopPropagation();
+                    resetAllZooms();
+                }
+            }
+        });
+    }
+
+    // ─── Alarm Manager ─────────────────────────────────────────────────────────
+    let alarms = JSON.parse(localStorage.getItem('ff_alarms') || '[]');
+    let alarmCheckInterval = null;
+    let alarmRingingEl = null;
+
+    function addAlarm() {
+        const timeInput = $('#alarmTimeInput');
+        const labelInput = $('#alarmLabelInput');
+        if (!timeInput) return;
+        const time = timeInput.value;
+        if (!time) return;
+        const selectedDays = [];
+        $$('#alarmDaysRow .alarm-day-btn.active').forEach(b => selectedDays.push(parseInt(b.dataset.day)));
+        alarms.push({
+            id: Date.now(), time, label: labelInput?.value || '',
+            days: selectedDays, enabled: true
+        });
+        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+        if (labelInput) labelInput.value = '';
+        $$('#alarmDaysRow .alarm-day-btn').forEach(b => b.classList.remove('active'));
+        renderAlarms();
+    }
+
+    function deleteAlarm(id) {
+        alarms = alarms.filter(a => a.id !== id);
+        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+        renderAlarms();
+    }
+
+    function renderAlarms() {
+        const list = $('#alarmList'), empty = $('#alarmEmpty');
+        if (!list) return;
+        const DAY_NAMES = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
+        if (alarms.length === 0) {
+            list.innerHTML = '<div class="notif-empty"><p>Henüz alarm yok</p></div>';
+            return;
+        }
+        list.innerHTML = alarms.map(a => `
+            <div class="alarm-card" data-id="${a.id}">
+                <div class="alarm-card-time">${a.time}</div>
+                <div class="alarm-card-info">
+                    <div class="alarm-card-label">${escHtml(a.label || 'Alarm')}</div>
+                    <div class="alarm-card-days">${a.days.length ? a.days.map(d => DAY_NAMES[d]).join(', ') : 'Bir kerelik'}</div>
+                </div>
+                <button class="alarm-delete-btn" data-alarm-del="${a.id}">✕</button>
+            </div>`).join('');
+        list.querySelectorAll('[data-alarm-del]').forEach(btn => {
+            btn.addEventListener('click', () => deleteAlarm(parseInt(btn.dataset.alarmDel)));
+        });
+    }
+
+    function checkAlarms() {
+        const now = new Date();
+        const h = pad(now.getHours()), m = pad(now.getMinutes());
+        const currentTime = `${h}:${m}`;
+        const currentDay = now.getDay();
+        alarms.forEach(alarm => {
+            if (!alarm.enabled) return;
+            if (alarm.time === currentTime && now.getSeconds() === 0) {
+                if (alarm.days.length === 0 || alarm.days.includes(currentDay)) {
+                    triggerAlarm(alarm);
+                    if (alarm.days.length === 0) {
+                        alarm.enabled = false;
+                        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+                    }
+                }
+            }
+        });
+    }
+
+    function triggerAlarm(alarm) {
+        playChime();
+        if (alarmRingingEl) alarmRingingEl.remove();
+        alarmRingingEl = document.createElement('div');
+        alarmRingingEl.className = 'alarm-ringing';
+        alarmRingingEl.innerHTML = `
+            <div class="alarm-ringing-icon">⏰</div>
+            <div class="alarm-ringing-time">${alarm.time}</div>
+            <div class="alarm-ringing-label">${escHtml(alarm.label || 'Alarm')}</div>
+            <button class="alarm-dismiss-btn">Kapat</button>`;
+        document.body.appendChild(alarmRingingEl);
+        alarmRingingEl.querySelector('.alarm-dismiss-btn').addEventListener('click', () => {
+            alarmRingingEl.remove(); alarmRingingEl = null;
+        });
+        // Notification API
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('⏰ ' + (alarm.label || 'Alarm'), { body: `Saat: ${alarm.time}` });
+        }
+    }
+
+    function initAlarm() {
+        // Day toggle
+        $$('#alarmDaysRow .alarm-day-btn').forEach(btn => {
+            btn.addEventListener('click', () => btn.classList.toggle('active'));
+        });
+        $('#alarmAddBtn')?.addEventListener('click', addAlarm);
+        renderAlarms();
+        // Check alarms every second (integrated with clock)
+        alarmCheckInterval = setInterval(checkAlarms, 1000);
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }
+
+    // ─── World Clock Manager ───────────────────────────────────────────────────
+    const WORLD_CITIES = [
+        { name: 'Londra', tz: 'Europe/London', flag: '🇬🇧' },
+        { name: 'New York', tz: 'America/New_York', flag: '🇺🇸' },
+        { name: 'Los Angeles', tz: 'America/Los_Angeles', flag: '🇺🇸' },
+        { name: 'Tokyo', tz: 'Asia/Tokyo', flag: '🇯🇵' },
+        { name: 'Paris', tz: 'Europe/Paris', flag: '🇫🇷' },
+        { name: 'Berlin', tz: 'Europe/Berlin', flag: '🇩🇪' },
+        { name: 'Dubai', tz: 'Asia/Dubai', flag: '🇦🇪' },
+        { name: 'Singapur', tz: 'Asia/Singapore', flag: '🇸🇬' },
+        { name: 'Sydney', tz: 'Australia/Sydney', flag: '🇦🇺' },
+        { name: 'Moskova', tz: 'Europe/Moscow', flag: '🇷🇺' },
+        { name: 'Pekin', tz: 'Asia/Shanghai', flag: '🇨🇳' },
+        { name: 'Seul', tz: 'Asia/Seoul', flag: '🇰🇷' },
+        { name: 'Mumbai', tz: 'Asia/Kolkata', flag: '🇮🇳' },
+        { name: 'São Paulo', tz: 'America/Sao_Paulo', flag: '🇧🇷' },
+        { name: 'Kahire', tz: 'Africa/Cairo', flag: '🇪🇬' },
+        { name: 'Roma', tz: 'Europe/Rome', flag: '🇮🇹' },
+        { name: 'Madrid', tz: 'Europe/Madrid', flag: '🇪🇸' },
+        { name: 'Amsterdam', tz: 'Europe/Amsterdam', flag: '🇳🇱' },
+        { name: 'Bangkok', tz: 'Asia/Bangkok', flag: '🇹🇭' },
+        { name: 'Honolulu', tz: 'Pacific/Honolulu', flag: '🇺🇸' },
+    ];
+    let savedCities = JSON.parse(localStorage.getItem('ff_worldclocks') || '[]');
+    let worldClockInterval = null;
+
+    function initWorldClock() {
+        const searchInput = $('#worldClockSearch');
+        const sugBox = $('#worldClockSuggestions');
+        if (!searchInput || !sugBox) return;
+
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.toLowerCase().trim();
+            if (q.length < 1) { sugBox.style.display = 'none'; return; }
+            const matches = WORLD_CITIES.filter(c =>
+                c.name.toLowerCase().includes(q) && !savedCities.find(s => s.tz === c.tz)
+            ).slice(0, 6);
+            if (matches.length === 0) { sugBox.style.display = 'none'; return; }
+            sugBox.style.display = 'flex';
+            sugBox.innerHTML = matches.map(c =>
+                `<div class="world-clock-sug-item" data-tz="${c.tz}">${c.flag} ${c.name}</div>`
+            ).join('');
+            sugBox.querySelectorAll('.world-clock-sug-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const city = WORLD_CITIES.find(c => c.tz === item.dataset.tz);
+                    if (city && !savedCities.find(s => s.tz === city.tz)) {
+                        savedCities.push(city);
+                        localStorage.setItem('ff_worldclocks', JSON.stringify(savedCities));
+                        renderWorldClocks();
+                    }
+                    searchInput.value = '';
+                    sugBox.style.display = 'none';
+                });
+            });
+        });
+        renderWorldClocks();
+        worldClockInterval = setInterval(renderWorldClocks, 1000);
+    }
+
+    function renderWorldClocks() {
+        const grid = $('#worldClockGrid');
+        if (!grid) return;
+        if (savedCities.length === 0) {
+            grid.innerHTML = '<div class="notif-empty"><p>Henüz şehir eklenmedi</p></div>';
+            return;
+        }
+        const now = new Date();
+        const localOffset = now.getTimezoneOffset();
+        grid.innerHTML = savedCities.map(city => {
+            const opts = { timeZone: city.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            const dateOpts = { timeZone: city.tz, day: 'numeric', month: 'short', weekday: 'short' };
+            const time = now.toLocaleTimeString('tr-TR', opts);
+            const date = now.toLocaleDateString('tr-TR', dateOpts);
+            const cityDate = new Date(now.toLocaleString('en-US', { timeZone: city.tz }));
+            const diffHours = Math.round((cityDate - now) / 3600000 + localOffset / 60);
+            const diffStr = diffHours >= 0 ? `+${diffHours}sa` : `${diffHours}sa`;
+            return `<div class="world-clock-card" data-tz="${city.tz}">
+                <button class="world-clock-remove" data-wc-del="${city.tz}">✕</button>
+                <div class="world-clock-card-city">${city.flag} ${city.name}</div>
+                <div class="world-clock-card-time">${time}</div>
+                <div class="world-clock-card-date">${date}</div>
+                <div class="world-clock-card-diff">${diffStr}</div>
+            </div>`;
+        }).join('');
+        grid.querySelectorAll('[data-wc-del]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                savedCities = savedCities.filter(c => c.tz !== btn.dataset.wcDel);
+                localStorage.setItem('ff_worldclocks', JSON.stringify(savedCities));
+                renderWorldClocks();
+            });
+        });
+    }
+
+    // ─── ToDo Manager ──────────────────────────────────────────────────────────
+    let todos = JSON.parse(localStorage.getItem('ff_todos') || '[]');
+    let todoFilter = 'all';
+
+    function addTodo() {
+        const input = $('#todoInput');
+        if (!input || !input.value.trim()) return;
+        todos.unshift({ id: Date.now(), text: input.value.trim(), done: false });
+        localStorage.setItem('ff_todos', JSON.stringify(todos));
+        input.value = '';
+        renderTodos();
+    }
+
+    function toggleTodo(id) {
+        const todo = todos.find(t => t.id === id);
+        if (todo) { todo.done = !todo.done; localStorage.setItem('ff_todos', JSON.stringify(todos)); renderTodos(); }
+    }
+
+    function deleteTodo(id) {
+        todos = todos.filter(t => t.id !== id);
+        localStorage.setItem('ff_todos', JSON.stringify(todos));
+        renderTodos();
+    }
+
+    function renderTodos() {
+        const list = $('#todoList'), footer = $('#todoFooter'), count = $('#todoCount');
+        if (!list) return;
+        let filtered = todos;
+        if (todoFilter === 'active') filtered = todos.filter(t => !t.done);
+        if (todoFilter === 'done') filtered = todos.filter(t => t.done);
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="notif-empty"><p>Görev yok</p></div>';
+        } else {
+            list.innerHTML = filtered.map(t => `
+                <div class="todo-item ${t.done ? 'done' : ''}" data-todo="${t.id}">
+                    <div class="todo-checkbox ${t.done ? 'checked' : ''}" data-todo-toggle="${t.id}"></div>
+                    <span class="todo-item-text">${escHtml(t.text)}</span>
+                    <button class="todo-delete-btn" data-todo-del="${t.id}">✕</button>
+                </div>`).join('');
+            list.querySelectorAll('[data-todo-toggle]').forEach(cb => {
+                cb.addEventListener('click', () => toggleTodo(parseInt(cb.dataset.todoToggle)));
+            });
+            list.querySelectorAll('[data-todo-del]').forEach(btn => {
+                btn.addEventListener('click', () => deleteTodo(parseInt(btn.dataset.todoDel)));
+            });
+        }
+        if (footer) footer.style.display = todos.length > 0 ? 'flex' : 'none';
+        if (count) {
+            const active = todos.filter(t => !t.done).length;
+            count.textContent = `${active} aktif / ${todos.length} toplam`;
+        }
+    }
+
+    function initTodo() {
+        $('#todoAddBtn')?.addEventListener('click', addTodo);
+        $('#todoInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
+        $$('.todo-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                $$('.todo-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                todoFilter = btn.dataset.filter;
+                renderTodos();
+            });
+        });
+        $('#todoClearDone')?.addEventListener('click', () => {
+            todos = todos.filter(t => !t.done);
+            localStorage.setItem('ff_todos', JSON.stringify(todos));
+            renderTodos();
+        });
+        renderTodos();
+    }
+
+    // ─── Ambient Sound Manager ─────────────────────────────────────────────────
+    const AMBIENT_SOUNDS = [
+        { id: 'rain', name: 'Yağmur', icon: '🌧️', freq: 'brown' },
+        { id: 'forest', name: 'Orman', icon: '🌲', freq: 'green' },
+        { id: 'ocean', name: 'Okyanus', icon: '🌊', freq: 'blue' },
+        { id: 'birds', name: 'Kuş Sesleri', icon: '🐦', freq: 'pink' },
+        { id: 'fireplace', name: 'Şömine', icon: '🔥', freq: 'red' },
+        { id: 'cafe', name: 'Kahve Dükkanı', icon: '☕', freq: 'cafe' },
+        { id: 'thunder', name: 'Gök Gürültüsü', icon: '⛈️', freq: 'thunder' },
+        { id: 'wind', name: 'Rüzgar', icon: '💨', freq: 'white' },
+    ];
+    let audioCtx = null;
+    let activeSounds = {};
+
+    function createNoiseGenerator(type, volume = 0.3) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        // Generate different types of noise
+        let lastVal = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            switch (type) {
+                case 'brown': lastVal = (lastVal + (0.02 * white)) / 1.02; data[i] = lastVal * 3.5; break;
+                case 'pink': data[i] = white * 0.5 * (1 - i / bufferSize * 0.3); break;
+                case 'green': data[i] = Math.sin(i * 0.001) * 0.3 + white * 0.15; break;
+                case 'blue': data[i] = white * (i / bufferSize) * 0.6; break;
+                case 'red': lastVal = (lastVal + (0.01 * white)) / 1.01; data[i] = lastVal * 5; break;
+                case 'cafe': data[i] = white * 0.2 + Math.sin(i * 0.0003) * 0.1; break;
+                case 'thunder': data[i] = white * Math.pow(Math.sin(i * 0.00005), 2) * 0.8; break;
+                default: data[i] = white * 0.3; break;
+            }
+        }
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        const gain = audioCtx.createGain();
+        gain.gain.value = volume;
+        source.connect(gain);
+        gain.connect(audioCtx.destination);
+        source.start();
+        return { source, gain };
+    }
+
+    function toggleAmbientSound(soundId) {
+        if (activeSounds[soundId]) {
+            activeSounds[soundId].source.stop();
+            delete activeSounds[soundId];
+        } else {
+            const sound = AMBIENT_SOUNDS.find(s => s.id === soundId);
+            if (sound) {
+                activeSounds[soundId] = createNoiseGenerator(sound.freq, 0.3);
+            }
+        }
+        renderAmbientGrid();
+    }
+
+    function setAmbientVolume(soundId, vol) {
+        if (activeSounds[soundId]) {
+            activeSounds[soundId].gain.gain.value = vol;
+        }
+    }
+
+    function renderAmbientGrid() {
+        const grid = $('#ambientGrid');
+        if (!grid) return;
+        grid.innerHTML = AMBIENT_SOUNDS.map(s => `
+            <div class="ambient-card ${activeSounds[s.id] ? 'active' : ''}" data-sound="${s.id}">
+                <div class="ambient-card-icon">${s.icon}</div>
+                <div class="ambient-card-name">${s.name}</div>
+                <div class="ambient-card-volume">
+                    <input type="range" min="0" max="100" value="${activeSounds[s.id] ? Math.round(activeSounds[s.id].gain.gain.value * 100 / 0.5) : 60}" data-vol="${s.id}">
+                </div>
+            </div>`).join('');
+        grid.querySelectorAll('.ambient-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.type === 'range') return;
+                toggleAmbientSound(card.dataset.sound);
+            });
+        });
+        grid.querySelectorAll('[data-vol]').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                setAmbientVolume(slider.dataset.vol, (e.target.value / 100) * 0.5);
+            });
+        });
+    }
+
+    function initAmbient() {
+        renderAmbientGrid();
+    }
+
+    // ─── Statistics Manager ────────────────────────────────────────────────────
+    function getStatsHistory() {
+        try { return JSON.parse(localStorage.getItem('ff_stats_history') || '[]'); }
+        catch { return []; }
+    }
+
+    function saveStatsHistory(entry) {
+        const history = getStatsHistory();
+        const today = new Date().toDateString();
+        const existing = history.find(h => h.date === today);
+        if (existing) {
+            existing.completed = (existing.completed || 0) + (entry.completed || 0);
+            existing.minutes = (existing.minutes || 0) + (entry.minutes || 0);
+        } else {
+            history.push({ date: today, completed: entry.completed || 0, minutes: entry.minutes || 0 });
+        }
+        // Keep last 90 days
+        while (history.length > 90) history.shift();
+        localStorage.setItem('ff_stats_history', JSON.stringify(history));
+    }
+
+    function renderStatsModal() {
+        const history = getStatsHistory();
+        const todayStats = loadStats();
+        // Summary values
+        const totalSessions = history.reduce((sum, h) => sum + (h.completed || 0), 0) + (todayStats.completed || 0);
+        const totalMinutes = history.reduce((sum, h) => sum + (h.minutes || 0), 0) + (todayStats.totalMinutes || 0);
+        const el1 = $('#statsCompletedTotal'); if (el1) el1.textContent = totalSessions;
+        const el2 = $('#statsTotalMinutes'); if (el2) el2.textContent = totalMinutes + 'dk';
+        const el3 = $('#statsCurrentStreak'); if (el3) el3.textContent = todayStats.streak || 0;
+
+        // Best day
+        let bestDay = '--';
+        if (history.length > 0) {
+            const best = history.reduce((max, h) => (h.completed || 0) > (max.completed || 0) ? h : max, history[0]);
+            if (best) {
+                const d = new Date(best.date);
+                bestDay = `${d.getDate()}/${d.getMonth() + 1}`;
+            }
+        }
+        const el4 = $('#statsBestDay'); if (el4) el4.textContent = bestDay;
+
+        // Draw chart
+        drawStatsChart();
+    }
+
+    function drawStatsChart() {
+        const canvas = $('#statsChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const history = getStatsHistory();
+        const todayStats = loadStats();
+        const last7 = [];
+        const DAY_SHORT = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toDateString();
+            const entry = history.find(e => e.date === dateStr);
+            let mins = entry ? entry.minutes || 0 : 0;
+            if (i === 0) mins += todayStats.totalMinutes || 0;
+            last7.push({ day: DAY_SHORT[d.getDay()], mins });
+        }
+
+        const maxMins = Math.max(...last7.map(d => d.mins), 25);
+        const barW = (w - 60) / 7;
+        const chartH = h - 40;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = 10 + (chartH / 4) * i;
+            ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(w - 10, y); ctx.stroke();
+        }
+
+        // Bars
+        last7.forEach((d, i) => {
+            const barH = (d.mins / maxMins) * chartH;
+            const x = 35 + i * barW;
+            const y = 10 + chartH - barH;
+
+            // Gradient bar
+            const grad = ctx.createLinearGradient(x, y, x, y + barH);
+            grad.addColorStop(0, '#7c6aff');
+            grad.addColorStop(1, '#a855f7');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(x + 4, y, barW - 8, barH, 4);
+            ctx.fill();
+
+            // Day label
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(d.day, x + barW / 2, h - 5);
+
+            // Value on top
+            if (d.mins > 0) {
+                ctx.fillStyle = '#7c6aff';
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.fillText(d.mins + 'dk', x + barW / 2, y - 4);
+            }
+        });
+    }
+
+    // ─── Calendar Manager ──────────────────────────────────────────────────────
+    let calendarDate = new Date();
+    let selectedCalDate = null;
+    const CAL_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+    function renderCalendar() {
+        const grid = $('#calGrid');
+        const title = $('#calMonthTitle');
+        if (!grid || !title) return;
+
+        const year = calendarDate.getFullYear();
+        const month = calendarDate.getMonth();
+        title.textContent = `${CAL_MONTHS[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        const history = getStatsHistory();
+
+        let html = '';
+        // Previous month padding
+        const prevDays = new Date(year, month, 0).getDate();
+        for (let i = firstDay - 1; i >= 0; i--) {
+            html += `<div class="calendar-day other-month">${prevDays - i}</div>`;
+        }
+
+        // Current month days
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(year, month, d);
+            const dateStr = date.toDateString();
+            const isToday = dateStr === today.toDateString();
+            const isSelected = selectedCalDate && dateStr === selectedCalDate.toDateString();
+            const hasData = history.some(h => h.date === dateStr) ||
+                (isToday && (loadStats().completed > 0));
+            const classes = ['calendar-day'];
+            if (isToday) classes.push('today');
+            if (isSelected) classes.push('selected');
+            if (hasData) classes.push('has-data');
+            html += `<div class="${classes.join(' ')}" data-cal-day="${d}">${d}</div>`;
+        }
+
+        // Next month padding
+        const totalCells = firstDay + daysInMonth;
+        const remaining = (7 - totalCells % 7) % 7;
+        for (let i = 1; i <= remaining; i++) {
+            html += `<div class="calendar-day other-month">${i}</div>`;
+        }
+
+        grid.innerHTML = html;
+
+        // Click handlers
+        grid.querySelectorAll('[data-cal-day]').forEach(el => {
+            el.addEventListener('click', () => {
+                const day = parseInt(el.dataset.calDay);
+                selectedCalDate = new Date(year, month, day);
+                renderCalendar();
+                renderCalendarEvents();
+            });
+        });
+    }
+
+    function renderCalendarEvents() {
+        const list = $('#calEventsList');
+        if (!list || !selectedCalDate) return;
+        const dateStr = selectedCalDate.toDateString();
+        const history = getStatsHistory();
+        const entry = history.find(h => h.date === dateStr);
+        const todayStats = dateStr === new Date().toDateString() ? loadStats() : null;
+
+        const sessions = (entry?.completed || 0) + (todayStats?.completed || 0);
+        const minutes = (entry?.minutes || 0) + (todayStats?.totalMinutes || 0);
+
+        if (sessions === 0 && minutes === 0) {
+            list.innerHTML = '<div class="notif-empty"><p>Bu güne ait veri yok</p></div>';
+            return;
+        }
+
+        list.innerHTML = `
+            <div class="calendar-event-item">
+                <span class="calendar-event-icon">🎯</span>
+                <span class="calendar-event-text">${sessions} oturum tamamlandı</span>
+                <span class="calendar-event-time">${minutes}dk</span>
+            </div>`;
+    }
+
+    function initCalendar() {
+        $('#calPrev')?.addEventListener('click', () => {
+            calendarDate.setMonth(calendarDate.getMonth() - 1);
+            renderCalendar();
+        });
+        $('#calNext')?.addEventListener('click', () => {
+            calendarDate.setMonth(calendarDate.getMonth() + 1);
+            renderCalendar();
+        });
+        selectedCalDate = new Date();
+        renderCalendar();
+        renderCalendarEvents();
+    }
+
+    // Enhanced timerComplete to save stats history
+    const _origTimerComplete = timerComplete;
+
     // ─── Init ──────────────────────────────────────────────────────────────────
     function init() {
         // Clock
@@ -806,6 +1489,12 @@
         initManualInput();
         initExitGuard();
         initModals();
+        initZoom();
+        initAlarm();
+        initWorldClock();
+        initTodo();
+        initAmbient();
+        initCalendar();
 
         // Timer buttons
         $('#btnPlay')?.addEventListener('click', () => { timerState.running ? pauseTimer() : startTimer(); });

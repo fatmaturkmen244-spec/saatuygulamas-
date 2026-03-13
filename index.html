@@ -5,7 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="FocusFlow — Kişisel odaklanma saati, WhatsApp ve Gmail entegrasyonu ile.">
+    <meta name="theme-color" content="#7c6aff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>FocusFlow — Odaklanma Saati</title>
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -14,6 +21,16 @@
     <!-- Socket.io (served by backend) -->
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="style.css">
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('✅ SW registered:', reg.scope))
+                    .catch(err => console.log('❌ SW failed:', err));
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -83,7 +100,15 @@
     <main class="app-container">
 
         <!-- Clock -->
-        <section class="clock-section">
+        <section class="clock-section" id="clockSection" data-zoom="small">
+            <button class="zoom-toggle-btn" id="clockZoomBtn" title="Büyüt / Küçült">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+            </button>
             <div class="analog-clock" id="analogClock">
                 <div class="clock-face">
                     <div class="clock-hand clock-hand-hour" id="hourHand"></div>
@@ -99,8 +124,16 @@
         </section>
 
         <!-- Timer -->
-        <section class="timer-section">
+        <section class="timer-section" id="timerSection" data-zoom="small">
             <div class="timer-card glass-card">
+                <button class="zoom-toggle-btn" id="timerZoomBtn" title="Büyüt / Küçült">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="11" y1="8" x2="11" y2="14" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                </button>
                 <!-- Mode Tabs -->
                 <div class="timer-mode-tabs">
                     <button class="tab-btn active" data-mode="focus" id="tabFocus">
@@ -212,6 +245,58 @@
 
     <!-- ═══ BOTTOM TOOLBAR ═══ -->
     <nav class="bottom-toolbar">
+        <button class="toolbar-btn" id="btnAlarm" title="Alarm">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2 2" />
+                <path d="M5 3 2 6" />
+                <path d="m22 6-3-3" />
+            </svg>
+            <span>Alarm</span>
+        </button>
+        <button class="toolbar-btn" id="btnWorldClock" title="Dünya Saatleri">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <span>Dünya</span>
+        </button>
+        <button class="toolbar-btn" id="btnTodo" title="Görevler">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            <span>Görevler</span>
+        </button>
+        <button class="toolbar-btn" id="btnAmbient" title="Ortam Sesleri">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8a6 6 0 0 0-9.33-5" />
+                <path d="M13 16a6 6 0 0 0 4.87-2.5" />
+                <path d="M2 12h20" />
+                <path d="M2 16h6" />
+                <path d="M18 16h4" />
+                <path d="M6 8h4" />
+            </svg>
+            <span>Sesler</span>
+        </button>
+        <button class="toolbar-btn" id="btnStats" title="İstatistikler">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 20V10" />
+                <path d="M12 20V4" />
+                <path d="M6 20v-6" />
+            </svg>
+            <span>İstatistik</span>
+        </button>
+        <button class="toolbar-btn" id="btnCalendar" title="Takvim">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span>Takvim</span>
+        </button>
         <button class="toolbar-btn" id="btnBgPicker" title="Arka plan seç">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="2" width="20" height="20" rx="2" />
@@ -405,6 +490,169 @@
                         <div class="suggestion-times" id="suggestionTimes">--</div>
                     </div>
                     <button class="suggestion-apply-btn" id="btnApplySuggestion">Uygula</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ ALARM MODAL ═══ -->
+    <div class="modal-overlay" id="alarmModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>⏰ Alarm / Hatırlatıcı</h2>
+                <button class="modal-close" id="alarmClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alarm-add-section">
+                    <div class="alarm-time-row">
+                        <input type="time" class="alarm-time-input" id="alarmTimeInput" value="07:00">
+                        <input type="text" class="alarm-label-input" id="alarmLabelInput"
+                            placeholder="Etiket (opsiyonel)">
+                        <button class="alarm-add-btn" id="alarmAddBtn">+</button>
+                    </div>
+                    <div class="alarm-days-row" id="alarmDaysRow">
+                        <button class="alarm-day-btn" data-day="0">Pz</button>
+                        <button class="alarm-day-btn" data-day="1">Pt</button>
+                        <button class="alarm-day-btn" data-day="2">Sa</button>
+                        <button class="alarm-day-btn" data-day="3">Ça</button>
+                        <button class="alarm-day-btn" data-day="4">Pe</button>
+                        <button class="alarm-day-btn" data-day="5">Cu</button>
+                        <button class="alarm-day-btn" data-day="6">Ct</button>
+                    </div>
+                </div>
+                <div class="alarm-list" id="alarmList">
+                    <div class="notif-empty" id="alarmEmpty">
+                        <p>Henüz alarm yok</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ WORLD CLOCKS MODAL ═══ -->
+    <div class="modal-overlay" id="worldClockModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>🌍 Dünya Saatleri</h2>
+                <button class="modal-close" id="worldClockClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="world-clock-search-row">
+                    <input type="text" class="world-clock-search" id="worldClockSearch"
+                        placeholder="Şehir ara... (Londra, Tokyo, New York...)">
+                </div>
+                <div class="world-clock-suggestions" id="worldClockSuggestions" style="display:none"></div>
+                <div class="world-clock-grid" id="worldClockGrid">
+                    <div class="notif-empty" id="worldClockEmpty">
+                        <p>Henüz şehir eklenmedi</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ TODO MODAL ═══ -->
+    <div class="modal-overlay" id="todoModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>✅ Görevler</h2>
+                <button class="modal-close" id="todoClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="todo-input-row">
+                    <input type="text" class="todo-input" id="todoInput" placeholder="Yeni görev ekle...">
+                    <button class="todo-add-btn" id="todoAddBtn">+</button>
+                </div>
+                <div class="todo-filters">
+                    <button class="todo-filter-btn active" data-filter="all">Tümü</button>
+                    <button class="todo-filter-btn" data-filter="active">Aktif</button>
+                    <button class="todo-filter-btn" data-filter="done">Tamamlanan</button>
+                </div>
+                <div class="todo-list" id="todoList"></div>
+                <div class="todo-footer" id="todoFooter" style="display:none">
+                    <span id="todoCount">0 görev</span>
+                    <button class="todo-clear-btn" id="todoClearDone">Tamamlananları Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ AMBIENT SOUNDS MODAL ═══ -->
+    <div class="modal-overlay" id="ambientModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>🎧 Ortam Sesleri</h2>
+                <button class="modal-close" id="ambientClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="ambient-desc">Birden fazla ses aynı anda çalabilir. Ses seviyesini ayarlayın:</p>
+                <div class="ambient-grid" id="ambientGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ STATISTICS MODAL ═══ -->
+    <div class="modal-overlay" id="statsModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>📊 İstatistikler</h2>
+                <button class="modal-close" id="statsClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-summary-grid">
+                    <div class="stats-summary-card">
+                        <div class="stats-summary-icon">🎯</div>
+                        <div class="stats-summary-value" id="statsCompletedTotal">0</div>
+                        <div class="stats-summary-label">Toplam Oturum</div>
+                    </div>
+                    <div class="stats-summary-card">
+                        <div class="stats-summary-icon">⏱️</div>
+                        <div class="stats-summary-value" id="statsTotalMinutes">0dk</div>
+                        <div class="stats-summary-label">Toplam Odak</div>
+                    </div>
+                    <div class="stats-summary-card">
+                        <div class="stats-summary-icon">🔥</div>
+                        <div class="stats-summary-value" id="statsCurrentStreak">0</div>
+                        <div class="stats-summary-label">Günlük Seri</div>
+                    </div>
+                    <div class="stats-summary-card">
+                        <div class="stats-summary-icon">📅</div>
+                        <div class="stats-summary-value" id="statsBestDay">--</div>
+                        <div class="stats-summary-label">En İyi Gün</div>
+                    </div>
+                </div>
+                <div class="stats-chart-section">
+                    <h3 class="stats-chart-title">Son 7 Gün</h3>
+                    <canvas id="statsChart" width="380" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ CALENDAR MODAL ═══ -->
+    <div class="modal-overlay" id="calendarModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>📅 Takvim</h2>
+                <button class="modal-close" id="calendarClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="calendar-nav">
+                    <button class="calendar-nav-btn" id="calPrev">&lsaquo;</button>
+                    <span class="calendar-month-title" id="calMonthTitle">--</span>
+                    <button class="calendar-nav-btn" id="calNext">&rsaquo;</button>
+                </div>
+                <div class="calendar-weekdays">
+                    <span>Pz</span><span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span>
+                </div>
+                <div class="calendar-grid" id="calGrid"></div>
+                <div class="calendar-events-section">
+                    <h3 class="calendar-events-title">Odak Geçmişi</h3>
+                    <div class="calendar-events-list" id="calEventsList">
+                        <div class="notif-empty">
+                            <p>Bu güne ait veri yok</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
