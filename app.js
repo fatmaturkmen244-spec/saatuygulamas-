@@ -905,7 +905,7 @@
                     // Reset all zooms
                     resetAllZooms();
                 });
-                document.body.appendChild(zoomBackdrop);
+                document.querySelector('.app-container').appendChild(zoomBackdrop);
             }
         } else if (next === 'full') {
             // Keep backdrop but make it darker
@@ -1248,29 +1248,47 @@
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
 
-        // Generate different types of noise
-        let lastVal = 0;
+        let lastOut = 0;
         for (let i = 0; i < bufferSize; i++) {
             const white = Math.random() * 2 - 1;
-            switch (type) {
-                case 'brown': lastVal = (lastVal + (0.02 * white)) / 1.02; data[i] = lastVal * 3.5; break;
-                case 'pink': data[i] = white * 0.5 * (1 - i / bufferSize * 0.3); break;
-                case 'green': data[i] = Math.sin(i * 0.001) * 0.3 + white * 0.15; break;
-                case 'blue': data[i] = white * (i / bufferSize) * 0.6; break;
-                case 'red': lastVal = (lastVal + (0.01 * white)) / 1.01; data[i] = lastVal * 5; break;
-                case 'cafe': data[i] = white * 0.2 + Math.sin(i * 0.0003) * 0.1; break;
-                case 'thunder': data[i] = white * Math.pow(Math.sin(i * 0.00005), 2) * 0.8; break;
-                default: data[i] = white * 0.3; break;
+            let out;
+            switch(type) {
+                case 'brown': out = (lastOut + (0.02 * white)) / 1.02; break;
+                case 'pink': out = (lastOut + (0.05 * white)) / 1.05; break;
+                case 'green': out = (lastOut + (0.1 * white)) / 1.1; break;
+                case 'blue': out = white * 0.5 - lastOut * 0.5; break;
+                case 'red': out = (lastOut + (0.01 * white)) / 1.01; break;
+                case 'cafe': out = (lastOut + (0.15 * white)) / 1.15; break;
+                case 'thunder': out = (lastOut + (0.03 * white)) / 1.03; break;
+                default: out = white * 0.7; break;
             }
+            lastOut = out;
+            data[i] = out * 3.5;
         }
 
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
+        
+        // Hışırtıyı ve keskin frekansları filtrele
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        
+        switch(type) {
+            case 'brown': filter.frequency.value = 400; break;
+            case 'red': filter.frequency.value = 250; break;
+            case 'thunder': filter.frequency.value = 350; break;
+            case 'blue': filter.frequency.value = 1200; break;
+            default: filter.frequency.value = 800; break; // Genel hışırtı azaltma
+        }
+
         const gain = audioCtx.createGain();
         gain.gain.value = volume;
-        source.connect(gain);
+        
+        source.connect(filter);
+        filter.connect(gain);
         gain.connect(audioCtx.destination);
+        
         source.start();
         return { source, gain };
     }
