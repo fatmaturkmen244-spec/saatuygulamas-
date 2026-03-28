@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="FocusFlow — Kişisel odaklanma saati, WhatsApp ve Gmail entegrasyonu ile.">
+    <meta name="description" content="FocusFlow — Pomodoro tekniği tabanlı kişisel odaklanma ve zaman yönetimi uygulaması. Mesleğine özel zamanlayıcı, görev takibi, alarm ve dünya saatleri.">
     <meta name="theme-color" content="#7c6aff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>FocusFlow — Odaklanma Saati</title>
@@ -18,8 +19,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap"
         rel="stylesheet">
-    <!-- Socket.io (served by backend) -->
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- FocusFlow — Pure Frontend (Netlify-ready) -->
     <link rel="stylesheet" href="style.css">
     <!-- Service Worker Registration -->
     <script>
@@ -241,7 +241,10 @@
     </main>
 
     <!-- Name Tag -->
-    <div class="user-name-tag">Fatma TÜRKMEN</div>
+    <div class="user-name-tag-wrap">
+        <div class="user-name-tag" id="userNameTag">Misafir</div>
+        <div class="designer-credit">Tasarım: Fatma TÜRKMEN</div>
+    </div>
 
     <!-- ═══ BOTTOM TOOLBAR ═══ -->
     <nav class="bottom-toolbar">
@@ -320,6 +323,13 @@
                     d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
             <span>Ayarlar</span>
+        </button>
+        <button class="toolbar-btn" id="btnName" title="Adını Değiştir">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span>Adım</span>
         </button>
     </nav>
 
@@ -437,35 +447,8 @@
                 <button class="modal-close" id="notifClose">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="connect-section" id="waSection">
-                    <div class="connect-header">
-                        <span class="connect-icon whatsapp">💬</span>
-                        <div class="connect-info">
-                            <div class="connect-name">WhatsApp</div>
-                            <div class="connect-status" id="waStatus">Bağlı değil</div>
-                        </div>
-                        <button class="connect-btn" id="waBtnConnect">Bağlan</button>
-                    </div>
-                    <!-- QR Code display -->
-                    <div class="qr-wrap" id="waQrWrap" style="display:none">
-                        <p class="qr-hint">WhatsApp → Bağlı Cihazlar → QR Kodu Okut</p>
-                        <img id="waQrImg" src="" alt="WhatsApp QR" class="qr-img">
-                    </div>
-                </div>
-
-                <div class="connect-section" id="gmailSection">
-                    <div class="connect-header">
-                        <span class="connect-icon gmail">✉️</span>
-                        <div class="connect-info">
-                            <div class="connect-name">Gmail</div>
-                            <div class="connect-status" id="gmailStatus">Bağlı değil</div>
-                        </div>
-                        <button class="connect-btn" id="gmailBtnConnect">Bağlan</button>
-                    </div>
-                </div>
-
                 <div class="simulated-section">
-                    <div class="simulated-section-label">Simüle Edilmiş Bildirimler</div>
+                    <div class="simulated-section-label">Demo Bildirimler — Aktif/Pasif Et</div>
                     <div class="notif-app-list" id="notifAppList"></div>
                 </div>
             </div>
@@ -655,6 +638,24 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ═══ ONBOARDING MODAL ═══ -->
+    <div class="modal-overlay" id="onboardingModal">
+        <div class="modal-content modal-small glass-card onboarding-modal">
+            <div class="onboarding-header">
+                <div class="onboarding-logo">⏱</div>
+                <h1 class="onboarding-title">FocusFlow'a Hoş Geldin!</h1>
+                <p class="onboarding-desc">Pomodoro tekniğiyle odaklan, hedeflerine ulaş.</p>
+            </div>
+            <div class="onboarding-body">
+                <label class="onboarding-label">Adın ne?</label>
+                <input type="text" class="onboarding-input" id="onboardingNameInput"
+                    placeholder="Adını yaz..." maxlength="40" autocomplete="off">
+                <button class="onboarding-btn" id="onboardingStartBtn">Başlayalım 🚀</button>
+            </div>
+            <p class="onboarding-hint">Adın uygulamanın üst kısmında görünecek.</p>
         </div>
     </div>
 

@@ -109,38 +109,56 @@
     let timerState = {
         mode: 'focus', running: false, paused: false,
         remaining: settings.focusDuration * 60, total: settings.focusDuration * 60,
-        currentSession: 1, intervalId: null
+        currentSession: 1, intervalId: null, endTime: null
     };
     let notifications = [];
     let unreadCount = 0;
     let notifSimTimeout = null;
     let pendingExitCallback = null;
     let currentProfession = null;
+    let socketId = null; // Server'daki socket ID (Push için)
+
+    // ─── VIP Kişi Listesi ─────────────────────────────────────────────────────
+    // vipContacts: { whatsapp: ['Ahmet', 'Fatma'], gmail: ['boss@example.com'] }
+    function loadVipContacts() {
+        try { return JSON.parse(localStorage.getItem('ff_vip_contacts') || '{"whatsapp":[],"gmail":[]}'); }
+        catch { return { whatsapp: [], gmail: [] }; }
+    }
+    function saveVipContacts(v) { localStorage.setItem('ff_vip_contacts', JSON.stringify(v)); }
+    let vipContacts = loadVipContacts();
+
+    // Gelen bir bildirimi VIP filtresinden geçir.
+    // VIP listesi boşsa → herkesi göster. Doluysa → sadece eşleşeni göster.
+    function isVipMatch(notif) {
+        const list = vipContacts[notif.appId] || [];
+        if (list.length === 0) return true; // liste boşsa herkesi göster
+        const sender = (notif.sender || '').toLowerCase();
+        const senderEmail = (notif.senderEmail || '').toLowerCase();
+        const senderPhone = (notif.senderPhone || '').toLowerCase();
+        return list.some(entry => {
+            const e = entry.toLowerCase().trim();
+            return sender.includes(e) || senderEmail.includes(e) || senderPhone.includes(e);
+        });
+    }
 
     // ─── DOM ───────────────────────────────────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
 
-    // ─── Socket.io ─────────────────────────────────────────────────────────────
+    // ─── Socket.io (Devre Dışı — Netlify Pure Frontend) ──────────────────────
     let socket = null;
     function initSocket() {
-        try {
-            socket = io();
-            socket.on('connect', () => console.log('[Socket] Bağlandı'));
-            socket.on('init_state', (state) => {
-                updateWaUI(state.wa);
-                updateGmailUI(state.gmail);
-            });
-            socket.on('new_notification', (notif) => pushNotification(notif));
-            socket.on('wa_qr', (data) => showWaQr(data.qr));
-            socket.on('wa_ready', (data) => onWaReady(data));
-            socket.on('wa_disconnected', (data) => onWaDisconnected(data));
-            socket.on('gmail_connected', (data) => onGmailConnected(data));
-            socket.on('gmail_disconnected', () => onGmailDisconnected());
-        } catch (e) {
-            console.warn('[Socket] Socket.io not available (likely running without backend):', e.message);
-        }
+        // Netlify pure frontend — socket devre dışı
+        console.log('[FocusFlow] Pure frontend mod — socket devre dışı.');
     }
+
+    // ─── Web Push (Devre Dışı — Netlify) ──────────────────────────────────────
+    let pushSubscription = null;
+    async function initPushNotifications() { /* Netlify'da backend yok */ }
+    function updatePushPermissionUI() { /* no-op */ }
+    async function scheduleTodoPush() { /* no-op */ }
+    function urlBase64ToUint8Array() { return new Uint8Array(); }
+
 
     // ─── Clock ────────────────────────────────────────────────────────────────
     function updateClock() {
@@ -172,10 +190,113 @@
         timerState.running = false; timerState.paused = false;
         timerState.total = getDuration(mode);
         timerState.remaining = timerState.total;
+        timerState.endTime = null;
         if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+        clearTimerState(); // localStorage'dan temizle
         document.body.classList.remove('focusing', 'on-break');
         $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
         updateTimerDisplay(); updatePlayBtn(); updateTimerLabel();
+    }
+
+    // ─── Timer State Persistence (localStorage) ────────────────────────────────────────
+    // Sayacı localStorage'a kaydet (sayfa kapanınca da sag olsun)
+    function saveTimerState() {
+        localStorage.setItem('ff_timer', JSON.stringify({
+            mode: timerState.mode,
+            endTime: timerState.endTime,
+            total: timerState.total,
+            currentSession: timerState.currentSession,
+            running: timerState.running,
+            paused: timerState.paused,
+            remaining: timerState.remaining
+        }));
+    }
+
+    function clearTimerState() {
+        localStorage.removeItem('ff_timer');
+    }
+
+    // Sayfa açılınca localStorage'dan güncel zamanı hesapla
+    function restoreTimerState() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('ff_timer') || 'null');
+            if (!saved || !saved.endTime || !saved.running) return false;
+
+            const now = Date.now();
+            const remaining = Math.max(0, Math.round((saved.endTime - now) / 1000));
+
+            // Modı ayarla (setMode çağırmadan, o localStorage'yı siliyor)
+            timerState.mode = saved.mode || 'focus';
+            timerState.total = saved.total || getDuration(timerState.mode);
+            timerState.currentSession = saved.currentSession || 1;
+            timerState.endTime = saved.endTime;
+
+            // Sekme/mod butonlarını düzenle
+            $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === timerState.mode));
+            document.body.classList.toggle('focusing', timerState.mode === 'focus');
+            document.body.classList.toggle('on-break', timerState.mode !== 'focus');
+
+            if (remaining <= 0) {
+                // Süre arka planda dolmuş→ tamamlandı olarak işle
+                console.log('[Timer] Arka planda tamamlandı, timer complete çağrılıyor');
+                timerState.remaining = 0;
+                timerState.running = false;
+                timerState.paused = false;
+                clearTimerState();
+                updateTimerDisplay();
+                updatePlayBtn();
+                updateTimerLabel();
+                setTimeout(() => timerComplete(), 300); // UI hazır olduktan sonra
+                return true;
+            }
+
+            // Kalan süreyi gerçek zamandan hesapla
+            timerState.remaining = remaining;
+            timerState.running = true;
+            timerState.paused = false;
+
+            updateTimerDisplay();
+            updatePlayBtn();
+            updateTimerLabel();
+            updateSessionDots();
+
+            // Interval'i yeniden başlat
+            timerState.intervalId = setInterval(() => {
+                const nowMs = Date.now();
+                timerState.remaining = Math.max(0, Math.round((timerState.endTime - nowMs) / 1000));
+                if (timerState.remaining > 0) {
+                    updateTimerDisplay();
+                    saveTimerState();
+                } else {
+                    timerState.remaining = 0;
+                    timerComplete();
+                }
+            }, 1000);
+
+            console.log(`[Timer] Arka plandan geri yüklendi: ${remaining}sn kaldı (${timerState.mode})`);
+            return true;
+        } catch (e) {
+            console.warn('[Timer] Geri yükleme hatası:', e);
+            return false;
+        }
+    }
+
+    // Sekme aktifleşince (visibility change) anında senkronize et
+    function initVisibilitySync() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible') return;
+            if (!timerState.running || !timerState.endTime) return;
+
+            const now = Date.now();
+            const correct = Math.max(0, Math.round((timerState.endTime - now) / 1000));
+            timerState.remaining = correct;
+            if (correct <= 0) {
+                timerState.remaining = 0;
+                timerComplete();
+            } else {
+                updateTimerDisplay();
+            }
+        });
     }
 
     function startTimer() {
@@ -184,22 +305,38 @@
         document.body.classList.toggle('focusing', timerState.mode === 'focus');
         document.body.classList.toggle('on-break', timerState.mode !== 'focus');
         updatePlayBtn(); updateTimerLabel();
+        timerState.endTime = Date.now() + (timerState.remaining * 1000);
+        saveTimerState(); // localStorage'a kaydet
         timerState.intervalId = setInterval(() => {
-            if (timerState.remaining > 0) { timerState.remaining--; updateTimerDisplay(); }
-            else { timerComplete(); }
+            const now = Date.now();
+            timerState.remaining = Math.max(0, Math.round((timerState.endTime - now) / 1000));
+            if (timerState.remaining > 0) {
+                updateTimerDisplay();
+                saveTimerState();
+            } else {
+                timerState.remaining = 0;
+                timerComplete();
+            }
         }, 1000);
     }
 
     function pauseTimer() {
         timerState.running = false; timerState.paused = true;
         if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+        if (timerState.endTime) {
+            timerState.remaining = Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
+            updateTimerDisplay();
+        }
+        clearTimerState(); // duraklatma = arka plan çalışmaması gerekiyor
         updatePlayBtn(); updateTimerLabel();
     }
 
     function resetTimer() {
         timerState.running = false; timerState.paused = false;
         timerState.remaining = timerState.total;
+        timerState.endTime = null;
         if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+        clearTimerState();
         document.body.classList.remove('focusing', 'on-break');
         updateTimerDisplay(); updatePlayBtn(); updateTimerLabel();
     }
@@ -207,6 +344,8 @@
     function timerComplete() {
         clearInterval(timerState.intervalId); timerState.intervalId = null;
         timerState.running = false; timerState.paused = false;
+        timerState.endTime = null;
+        clearTimerState(); // localStorage'dan temizle
         if (settings.soundEnabled) playChime();
         if (timerState.mode === 'focus') {
             const stats = loadStats();
@@ -429,85 +568,17 @@
         }
     }
 
-    // ─── WhatsApp Integration ──────────────────────────────────────────────────
-    function updateWaUI(state) {
-        const status = $('#waStatus'), btn = $('#waBtnConnect');
-        if (!status || !btn) return;
-        if (state?.ready || (state?.userInfo && state.userInfo.phone)) {
-            status.textContent = `Bağlı: ${state.userInfo?.name || state.userInfo?.phone || ''}`;
-            status.className = 'connect-status connected';
-            btn.textContent = 'Bağlantıyı Kes'; btn.className = 'connect-btn danger';
-            const wrap = $('#waQrWrap'); if (wrap) wrap.style.display = 'none';
-        } else if (state?.initializing) {
-            status.textContent = 'Başlatılıyor…';
-            btn.textContent = 'Bekleyin…'; btn.disabled = true;
-        } else {
-            status.textContent = 'Bağlı değil'; status.className = 'connect-status';
-            btn.textContent = 'Bağlan'; btn.className = 'connect-btn'; btn.disabled = false;
-        }
-    }
+    // ─── WhatsApp / Gmail (Devre Dışı — Netlify Pure Frontend) ──────────────────
+    function updateWaUI() {}
+    function showWaQr() {}
+    function onWaReady() {}
+    function onWaDisconnected() {}
+    function handleWaConnect() {}
+    function updateGmailUI() {}
+    function onGmailConnected() {}
+    function onGmailDisconnected() {}
+    function handleGmailConnect() {}
 
-    function showWaQr(qrDataUrl) {
-        const wrap = $('#waQrWrap'), img = $('#waQrImg');
-        const status = $('#waStatus'), btn = $('#waBtnConnect');
-        if (wrap) wrap.style.display = 'flex';
-        if (img) img.src = qrDataUrl;
-        if (status) status.textContent = 'QR Kodu Okutun';
-        if (btn) { btn.textContent = 'İptal'; btn.className = 'connect-btn danger'; btn.disabled = false; }
-    }
-
-    function onWaReady(data) {
-        updateWaUI({ ready: true, userInfo: data.userInfo });
-    }
-
-    function onWaDisconnected() {
-        updateWaUI({ ready: false });
-        const wrap = $('#waQrWrap'); if (wrap) wrap.style.display = 'none';
-    }
-
-    function handleWaConnect() {
-        if (!socket) return;
-        const btn = $('#waBtnConnect');
-        if (btn.textContent === 'Bağlantıyı Kes' || btn.textContent === 'İptal') {
-            socket.emit('wa_stop');
-            return;
-        }
-        updateWaUI({ initializing: true });
-        socket.emit('wa_start');
-    }
-
-    // ─── Gmail Integration ─────────────────────────────────────────────────────
-    function updateGmailUI(state) {
-        const status = $('#gmailStatus'), btn = $('#gmailBtnConnect');
-        if (!status || !btn) return;
-        if (state?.connected) {
-            status.textContent = `Bağlı: ${state.email || ''}`;
-            status.className = 'connect-status connected';
-            btn.textContent = 'Bağlantıyı Kes'; btn.className = 'connect-btn danger';
-        } else {
-            status.textContent = 'Bağlı değil'; status.className = 'connect-status';
-            btn.textContent = 'Bağlan'; btn.className = 'connect-btn';
-        }
-    }
-
-    function onGmailConnected(data) { updateGmailUI({ connected: true, email: data.email }); }
-    function onGmailDisconnected() { updateGmailUI({ connected: false }); }
-
-    function handleGmailConnect() {
-        const btn = $('#gmailBtnConnect');
-        if (btn.textContent === 'Bağlantıyı Kes') {
-            if (socket) socket.emit('gmail_stop');
-            return;
-        }
-        if (!socket || !socket.id) {
-            alert('Sunucuya henüz bağlanılamadı. Lütfen bekleyin.');
-            return;
-        }
-        // Open Google OAuth in popup with socket ID
-        const w = 500, h = 620;
-        const left = (screen.width - w) / 2, top = (screen.height - h) / 2;
-        window.open(`/auth/google?sid=${socket.id}`, 'gmail_auth', `width=${w},height=${h},left=${left},top=${top}`);
-    }
 
     // ─── API helper ────────────────────────────────────────────────────────────
     async function apiFetch(url, method = 'GET', body = null) {
@@ -736,7 +807,8 @@
         // Background
         $('#btnBgPicker')?.addEventListener('click', () => openModal('bgModal'));
         $('#bgClose')?.addEventListener('click', () => closeModal('bgModal'));
-        // Notif sources
+        // WhatsApp / Gmail kaldırıldı (Netlify pure frontend)
+        // Notif
         $('#notifSettingsBtn')?.addEventListener('click', () => openModal('notifModal'));
         $('#notifClose')?.addEventListener('click', () => closeModal('notifModal'));
         // Music
@@ -746,9 +818,7 @@
         $('#btnSuggest')?.addEventListener('click', () => { renderProfessions(); openModal('suggestModal'); });
         $('#suggestClose')?.addEventListener('click', () => closeModal('suggestModal'));
         $('#btnApplySuggestion')?.addEventListener('click', () => applySuggestion());
-        // WhatsApp / Gmail
-        $('#waBtnConnect')?.addEventListener('click', () => handleWaConnect());
-        $('#gmailBtnConnect')?.addEventListener('click', () => handleGmailConnect());
+
         // Alarm
         $('#btnAlarm')?.addEventListener('click', () => openModal('alarmModal'));
         $('#alarmClose')?.addEventListener('click', () => closeModal('alarmModal'));
@@ -1465,13 +1535,74 @@
     // Enhanced timerComplete to save stats history
     const _origTimerComplete = timerComplete;
 
+    // ─── VIP Kişi Yönetimi UI ────────────────────────────────────────────────────
+    function initVipUI() {
+        const waInput = $('#vipWaInput');
+        const waAdd = $('#vipWaAdd');
+        const waList = $('#vipWaList');
+        const gmailInput = $('#vipGmailInput');
+        const gmailAdd = $('#vipGmailAdd');
+        const gmailList = $('#vipGmailList');
+
+        function renderVipList(type, containerEl) {
+            if (!containerEl) return;
+            const list = vipContacts[type] || [];
+            if (list.length === 0) {
+                containerEl.innerHTML = '<span class="vip-empty">Henüz kimse eklenmedi — liste boşsa herkes görünür</span>';
+                return;
+            }
+            containerEl.innerHTML = list.map((name, i) => `
+                <div class="vip-tag">
+                    <span>${escHtml(name)}</span>
+                    <button class="vip-remove" data-type="${type}" data-i="${i}">×</button>
+                </div>`).join('');
+            containerEl.querySelectorAll('.vip-remove').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    vipContacts[type].splice(parseInt(btn.dataset.i), 1);
+                    saveVipContacts(vipContacts);
+                    renderVipList(type, containerEl);
+                });
+            });
+        }
+
+        function addVip(type, inputEl, listEl) {
+            if (!inputEl) return;
+            const val = inputEl.value.trim();
+            if (!val) return;
+            if (!vipContacts[type]) vipContacts[type] = [];
+            if (!vipContacts[type].includes(val)) {
+                vipContacts[type].push(val);
+                saveVipContacts(vipContacts);
+            }
+            inputEl.value = '';
+            renderVipList(type, listEl);
+        }
+
+        waAdd?.addEventListener('click', () => addVip('whatsapp', waInput, waList));
+        waInput?.addEventListener('keydown', e => { if (e.key === 'Enter') addVip('whatsapp', waInput, waList); });
+        gmailAdd?.addEventListener('click', () => addVip('gmail', gmailInput, gmailList));
+        gmailInput?.addEventListener('keydown', e => { if (e.key === 'Enter') addVip('gmail', gmailInput, gmailList); });
+
+        renderVipList('whatsapp', waList);
+        renderVipList('gmail', gmailList);
+    }
+
     // ─── Init ──────────────────────────────────────────────────────────────────
     function init() {
         // Clock
         updateClock(); setInterval(updateClock, 50);
 
         // Timer
-        setMode('focus'); renderSessionDots();
+        // Önce localStorage'dan çalışan timer var mı kontrol et
+        const timerRestored = restoreTimerState();
+        if (!timerRestored) {
+            // Kayıt yoksa sıfırdan başlat
+            setMode('focus');
+        }
+        renderSessionDots();
+
+        // Sekme aktifleşince anında senkronize et (arka plan donması çözümü)
+        initVisibilitySync();
 
         // Stats
         const stats = loadStats(); updateStatsUI(stats);
@@ -1492,9 +1623,28 @@
         initZoom();
         initAlarm();
         initWorldClock();
-        initTodo();
+        initTodo(scheduleTodoPush);
         initAmbient();
         initCalendar();
+
+        // Onboarding (isim sorma)
+        initOnboarding();
+
+        // Ad değiştir butonu
+        $('#btnName')?.addEventListener('click', () => {
+            const cur = loadUserName();
+            const input = $('#onboardingNameInput');
+            if (input) input.value = cur;
+            openModal('onboardingModal');
+            // Butonu güncelle
+            const btn = $('#onboardingStartBtn');
+            if (btn) btn.textContent = 'Güncelle ✅';
+            // Kapandığında eski metni geri yükle
+            const handler = () => {
+                if (btn) btn.textContent = 'BaşlayaLım 🚀';
+                input?.removeEventListener('keydown', handler);
+            };
+        });
 
         // Timer buttons
         $('#btnPlay')?.addEventListener('click', () => { timerState.running ? pauseTimer() : startTimer(); });
@@ -1509,7 +1659,7 @@
             }
         });
 
-        // Socket.io
+        // Socket.io (devre dışı)
         initSocket();
 
         // Simulated notifications

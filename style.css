@@ -2784,3 +2784,319 @@ body.on-break .tab-btn.active {
     color: var(--text-muted);
     font-family: var(--font-mono);
 }
+
+/* ═══ VIP KİŞİ LİSTESİ STYLES ═══ */
+.vip-intro {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    padding: 10px 14px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(124, 106, 255, 0.25);
+    border-radius: var(--radius-md);
+}
+
+.vip-intro strong {
+    color: var(--accent);
+}
+
+.vip-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.vip-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vip-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.vip-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.vip-input {
+    flex: 1;
+    padding: 10px 14px;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 13px;
+    outline: none;
+}
+
+.vip-input:focus {
+    border-color: var(--accent);
+}
+
+.vip-input::placeholder {
+    color: var(--text-muted);
+}
+
+.vip-add-btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--dur) var(--ease-out);
+    white-space: nowrap;
+}
+
+.vip-add-btn:hover {
+    background: #6b5bef;
+    transform: scale(1.04);
+}
+
+.vip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+}
+
+.vip-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 12px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(124, 106, 255, 0.35);
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    animation: notifIn 0.2s var(--ease-out);
+}
+
+.vip-remove {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(124, 106, 255, 0.2);
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--dur) ease;
+}
+
+.vip-remove:hover {
+    background: var(--danger);
+    color: #fff;
+}
+
+.vip-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 4px 0;
+}
+
+/* Push permission button states */
+#btnPushEnable.push-enabled span {
+    color: #4ade80;
+}
+
+#btnPushEnable.push-enabled svg {
+    stroke: #4ade80;
+}
+
+/* ─── User Name Tag Wrap ─── */
+.user-name-tag-wrap {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    animation: slideInRight 0.6s var(--ease-out);
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.user-name-tag {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    background: var(--bg-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 6px 14px;
+    letter-spacing: 0.3px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-name-tag:hover {
+    background: var(--bg-glass-strong);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.designer-credit {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    padding-right: 4px;
+    font-style: italic;
+}
+
+/* ─── Onboarding Modal ─── */
+.onboarding-modal {
+    text-align: center;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid rgba(124, 106, 255, 0.35) !important;
+    box-shadow: 0 0 60px rgba(124, 106, 255, 0.25), var(--shadow-lg) !important;
+    animation: onboardingIn 0.6s var(--ease-spring) !important;
+}
+
+@keyframes onboardingIn {
+    from { opacity: 0; transform: scale(0.88) translateY(24px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.onboarding-header {
+    background: linear-gradient(135deg, rgba(124,106,255,0.2), rgba(168,85,247,0.15));
+    padding: 36px 32px 28px;
+    border-bottom: 1px solid var(--border);
+}
+
+.onboarding-logo {
+    font-size: 48px;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 20px rgba(124,106,255,0.6));
+    animation: logoPulse 2s ease infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.onboarding-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+
+.onboarding-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.onboarding-body {
+    padding: 28px 32px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.onboarding-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+    display: block;
+}
+
+.onboarding-input {
+    width: 100%;
+    padding: 13px 18px;
+    background: var(--bg-surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 16px;
+    font-weight: 500;
+    outline: none;
+    transition: all var(--dur) ease;
+    text-align: center;
+}
+
+.onboarding-input::placeholder {
+    color: var(--text-muted);
+}
+
+.onboarding-input:focus {
+    border-color: var(--accent);
+    background: var(--bg-glass-strong);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.onboarding-input.shake {
+    animation: shake 0.5s ease;
+    border-color: var(--danger);
+}
+
+.onboarding-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-family: var(--font-main);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--dur) var(--ease-out);
+    box-shadow: 0 6px 24px var(--accent-glow);
+    letter-spacing: 0.3px;
+}
+
+.onboarding-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px var(--accent-glow);
+}
+
+.onboarding-btn:active {
+    transform: translateY(0);
+}
+
+.onboarding-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 12px 32px 24px;
+    text-align: center;
+}
+
