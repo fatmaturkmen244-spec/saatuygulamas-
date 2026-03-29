@@ -896,20 +896,20 @@
             }
         }
 
-        // Manage backdrop
+        // Manage backdrop — only for medium zoom
         if (next === 'medium') {
             if (!zoomBackdrop) {
                 zoomBackdrop = document.createElement('div');
                 zoomBackdrop.className = 'zoom-backdrop';
                 zoomBackdrop.addEventListener('click', () => {
-                    // Reset all zooms
                     resetAllZooms();
                 });
-                document.querySelector('.app-container').appendChild(zoomBackdrop);
+                document.body.appendChild(zoomBackdrop);
             }
+            zoomBackdrop.style.display = '';
         } else if (next === 'full') {
-            // Keep backdrop but make it darker
-            if (zoomBackdrop) zoomBackdrop.style.background = 'rgba(0,0,0,0.8)';
+            // Full zoom kendi tam ekranı — backdrop gizle
+            if (zoomBackdrop) zoomBackdrop.style.display = 'none';
         } else {
             removeZoomBackdrop();
         }

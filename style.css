@@ -1798,20 +1798,37 @@ body.on-break .tab-btn.active {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(1.65);
+    transform: translate(-50%, -50%);
     transform-origin: center center;
     z-index: 150;
-    transition: transform 0.35s var(--ease-out), opacity 0.35s ease;
-    animation: zoomFadeIn 0.35s ease;
-    background: rgba(12, 12, 28, 0.97);
-    border: 1px solid var(--border);
+    animation: zoomPopIn 0.35s var(--ease-spring) forwards;
+    background: #0d0d20;
+    border: 1px solid rgba(124, 106, 255, 0.4);
     border-radius: var(--radius-xl);
-    padding: 32px 48px;
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(124, 106, 255, 0.15);
+    padding: 40px 60px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(124, 106, 255, 0.2);
     gap: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Kendi backdrop-filter'ini kapat — bulanıklık olmasın */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.clock-section[data-zoom="medium"] .analog-clock {
+    transform: scale(1.8);
+    transform-origin: center;
+    margin: 30px 0;
+}
+
+.clock-section[data-zoom="medium"] .digital-time {
+    font-size: 36px;
+    letter-spacing: 3px;
+}
+
+.clock-section[data-zoom="medium"] .digital-date {
+    font-size: 15px;
 }
 
 /* Timer — medium */
@@ -1819,17 +1836,27 @@ body.on-break .tab-btn.active {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(1.45);
+    transform: translate(-50%, -50%);
     transform-origin: center center;
     z-index: 150;
-    animation: zoomFadeIn 0.35s ease;
+    animation: zoomPopIn 0.35s var(--ease-spring) forwards;
     width: auto;
+    max-width: 460px;
 }
 
 .timer-section[data-zoom="medium"] .timer-card {
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(124, 106, 255, 0.15);
-    backdrop-filter: none;
-    background: rgba(12, 12, 28, 0.97);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(124, 106, 255, 0.18);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0d0d20;
+    border: 1px solid rgba(124, 106, 255, 0.35);
+    padding: 36px 32px;
+}
+
+.timer-section[data-zoom="medium"] .timer-display {
+    transform: scale(1.35);
+    transform-origin: center;
+    margin: 20px 0;
 }
 
 /* ════════════════════════════════════════════════
@@ -1837,50 +1864,46 @@ body.on-break .tab-btn.active {
    Yaklaşım: fixed fullscreen overlay + scale(3.2)
    ════════════════════════════════════════════════ */
 
-/* Clock — full */
+/* Clock — full (tüm ekran) */
 .clock-section[data-zoom="full"] {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 150;
-    background: var(--bg-base);
+    inset: 0;
+    z-index: 200;
+    background: #07071a;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 24px;
+    gap: 28px;
     animation: zoomFadeIn 0.3s ease forwards;
     border-radius: 0;
     padding: 40px;
     border: none;
 }
 
-/* Scale up the clock content — this scales the analog clock, hands, digits—everything */
 .clock-section[data-zoom="full"] .analog-clock {
-    transform: scale(2.8);
-    transform-origin: center center;
-    margin: 60px 0;
+    width: 280px;
+    height: 280px;
+    transform: none;
 }
 
 .clock-section[data-zoom="full"] .digital-time {
-    font-size: 68px;
-    letter-spacing: 4px;
+    font-size: 72px;
+    letter-spacing: 6px;
 }
 
 .clock-section[data-zoom="full"] .digital-date {
-    font-size: 20px;
+    font-size: 22px;
+    color: var(--text-secondary);
 }
 
-/* Timer — full */
+/* Timer — full (tüm ekran) */
 .timer-section[data-zoom="full"] {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 150;
+    inset: 0;
+    z-index: 200;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1893,36 +1916,43 @@ body.on-break .tab-btn.active {
     max-width: none;
     border-radius: 0;
     border: none;
-    background: var(--bg-base);
+    background: #07071a;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 40px;
+    gap: 28px;
 }
 
-/* Scale timer display for crisp large rendering */
 .timer-section[data-zoom="full"] .timer-display {
-    transform: scale(1.8);
-    transform-origin: center center;
-    margin: 40px 0;
+    width: 320px;
+    height: 320px;
+    transform: none;
 }
 
 .timer-section[data-zoom="full"] .timer-value {
-    font-size: 72px;
+    font-size: 80px;
+    letter-spacing: 4px;
 }
 
 .timer-section[data-zoom="full"] .timer-label {
-    font-size: 16px;
+    font-size: 18px;
+}
+
+.timer-section[data-zoom="full"] .timer-mode-tabs {
+    max-width: 420px;
+    width: 100%;
 }
 
 /* ── Backdrop ── */
 .zoom-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.72);
+    /* backdrop-filter kaldırıldı — içerik bulanıklaşmasını önlemek için */
     z-index: 140;
     animation: zoomFadeIn 0.3s ease;
 }
@@ -1943,8 +1973,11 @@ body.on-break .tab-btn.active {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
+    z-index: 210;
+    border-radius: 50%;
+    font-size: 18px;
 }
 
 /* ── Animations ── */
