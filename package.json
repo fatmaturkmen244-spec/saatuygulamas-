@@ -3,10 +3,17 @@
   "version": "3.0.0",
   "description": "FocusFlow — Pomodoro tekniği tabanlı kişisel odaklanma ve zaman yönetimi uygulaması.",
   "scripts": {
-    "start": "serve .",
-    "dev": "serve ."
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
-    "serve": "^14.2.1"
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.1",
+    "mongoose": "^9.5.0",
+    "nodemailer": "^8.0.5",
+    "serve": "^14.2.1",
+    "serverless-http": "^4.0.0"
   }
 }

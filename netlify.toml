@@ -1,6 +1,15 @@
 [build]
   publish = "."
-  command = "echo 'Static site - no build needed'"
+  command = "npm install"
+
+[build.environment]
+  MONGO_URI = "mongodb+srv://fatma:focus123@cluster0.46fyeky.mongodb.net/focusflow?retryWrites=true&w=majority"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/*"
+  status = 200
+  force = true
 
 [[headers]]
   for = "/*"
@@ -9,19 +18,23 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Cache-Control = "public, max-age=3600"
 
 [[headers]]
   for = "/sw.js"
   [headers.values]
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
   for = "/app.js"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
   for = "/style.css"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "no-cache, no-store, must-revalidate"

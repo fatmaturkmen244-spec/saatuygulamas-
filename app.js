@@ -87,23 +87,30 @@
         { id: 'deep', label: 'Derin', gradient: 'linear-gradient(135deg,#6366f1,#7c3aed,#3b82f6)' }
     ];
 
+    // ─── Per-User localStorage Namespace ────────────────────────────────────────
+    // Kullanıcı başına ayrı veri: ff_{username}_todos, ff_{username}_stats ...
+    function getKey(base) {
+        const u = localStorage.getItem('ff_username') || 'guest';
+        return `ff_${u}_${base}`;
+    }
+
     // ─── Settings & Stats ──────────────────────────────────────────────────────
     let settings = loadSettings();
 
     function loadSettings() {
-        try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('ff_settings') || '{}') }; }
+        try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(getKey('settings')) || '{}') }; }
         catch { return { ...DEFAULTS }; }
     }
-    function saveSettings() { localStorage.setItem('ff_settings', JSON.stringify(settings)); }
+    function saveSettings() { localStorage.setItem(getKey('settings'), JSON.stringify(settings)); }
 
     function loadStats() {
         try {
             const today = new Date().toDateString();
-            const s = JSON.parse(localStorage.getItem('ff_stats') || '{}');
+            const s = JSON.parse(localStorage.getItem(getKey('stats')) || '{}');
             return s.date === today ? s : { date: today, completed: 0, totalMinutes: 0, streak: 0 };
         } catch { return { date: new Date().toDateString(), completed: 0, totalMinutes: 0, streak: 0 }; }
     }
-    function saveStats(s) { localStorage.setItem('ff_stats', JSON.stringify(s)); }
+    function saveStats(s) { localStorage.setItem(getKey('stats'), JSON.stringify(s)); }
 
     // ─── State ─────────────────────────────────────────────────────────────────
     let timerState = {
@@ -121,10 +128,10 @@
     // ─── VIP Kişi Listesi ─────────────────────────────────────────────────────
     // vipContacts: { whatsapp: ['Ahmet', 'Fatma'], gmail: ['boss@example.com'] }
     function loadVipContacts() {
-        try { return JSON.parse(localStorage.getItem('ff_vip_contacts') || '{"whatsapp":[],"gmail":[]}'); }
+        try { return JSON.parse(localStorage.getItem(getKey('vip_contacts')) || '{"whatsapp":[],"gmail":[]}'); }
         catch { return { whatsapp: [], gmail: [] }; }
     }
-    function saveVipContacts(v) { localStorage.setItem('ff_vip_contacts', JSON.stringify(v)); }
+    function saveVipContacts(v) { localStorage.setItem(getKey('vip_contacts'), JSON.stringify(v)); }
     let vipContacts = loadVipContacts();
 
     // Gelen bir bildirimi VIP filtresinden geçir.
@@ -957,7 +964,7 @@
     }
 
     // ─── Alarm Manager ─────────────────────────────────────────────────────────
-    let alarms = JSON.parse(localStorage.getItem('ff_alarms') || '[]');
+    let alarms = JSON.parse(localStorage.getItem(getKey('alarms')) || '[]');
     let alarmCheckInterval = null;
     let alarmRingingEl = null;
 
@@ -973,7 +980,7 @@
             id: Date.now(), time, label: labelInput?.value || '',
             days: selectedDays, enabled: true
         });
-        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+        localStorage.setItem(getKey('alarms'), JSON.stringify(alarms));
         if (labelInput) labelInput.value = '';
         $$('#alarmDaysRow .alarm-day-btn').forEach(b => b.classList.remove('active'));
         renderAlarms();
@@ -981,7 +988,7 @@
 
     function deleteAlarm(id) {
         alarms = alarms.filter(a => a.id !== id);
-        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+        localStorage.setItem(getKey('alarms'), JSON.stringify(alarms));
         renderAlarms();
     }
 
@@ -1019,7 +1026,7 @@
                     triggerAlarm(alarm);
                     if (alarm.days.length === 0) {
                         alarm.enabled = false;
-                        localStorage.setItem('ff_alarms', JSON.stringify(alarms));
+                        localStorage.setItem(getKey('alarms'), JSON.stringify(alarms));
                     }
                 }
             }
@@ -1084,7 +1091,7 @@
         { name: 'Bangkok', tz: 'Asia/Bangkok', flag: '🇹🇭' },
         { name: 'Honolulu', tz: 'Pacific/Honolulu', flag: '🇺🇸' },
     ];
-    let savedCities = JSON.parse(localStorage.getItem('ff_worldclocks') || '[]');
+    let savedCities = JSON.parse(localStorage.getItem(getKey('worldclocks')) || '[]');
     let worldClockInterval = null;
 
     function initWorldClock() {
@@ -1108,7 +1115,7 @@
                     const city = WORLD_CITIES.find(c => c.tz === item.dataset.tz);
                     if (city && !savedCities.find(s => s.tz === city.tz)) {
                         savedCities.push(city);
-                        localStorage.setItem('ff_worldclocks', JSON.stringify(savedCities));
+                        localStorage.setItem(getKey('worldclocks'), JSON.stringify(savedCities));
                         renderWorldClocks();
                     }
                     searchInput.value = '';
@@ -1149,33 +1156,33 @@
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 savedCities = savedCities.filter(c => c.tz !== btn.dataset.wcDel);
-                localStorage.setItem('ff_worldclocks', JSON.stringify(savedCities));
+                localStorage.setItem(getKey('worldclocks'), JSON.stringify(savedCities));
                 renderWorldClocks();
             });
         });
     }
 
     // ─── ToDo Manager ──────────────────────────────────────────────────────────
-    let todos = JSON.parse(localStorage.getItem('ff_todos') || '[]');
+    let todos = JSON.parse(localStorage.getItem(getKey('todos')) || '[]');
     let todoFilter = 'all';
 
     function addTodo() {
         const input = $('#todoInput');
         if (!input || !input.value.trim()) return;
         todos.unshift({ id: Date.now(), text: input.value.trim(), done: false });
-        localStorage.setItem('ff_todos', JSON.stringify(todos));
+        localStorage.setItem(getKey('todos'), JSON.stringify(todos));
         input.value = '';
         renderTodos();
     }
 
     function toggleTodo(id) {
         const todo = todos.find(t => t.id === id);
-        if (todo) { todo.done = !todo.done; localStorage.setItem('ff_todos', JSON.stringify(todos)); renderTodos(); }
+        if (todo) { todo.done = !todo.done; localStorage.setItem(getKey('todos'), JSON.stringify(todos)); renderTodos(); }
     }
 
     function deleteTodo(id) {
         todos = todos.filter(t => t.id !== id);
-        localStorage.setItem('ff_todos', JSON.stringify(todos));
+        localStorage.setItem(getKey('todos'), JSON.stringify(todos));
         renderTodos();
     }
 
@@ -1222,7 +1229,7 @@
         });
         $('#todoClearDone')?.addEventListener('click', () => {
             todos = todos.filter(t => !t.done);
-            localStorage.setItem('ff_todos', JSON.stringify(todos));
+            localStorage.setItem(getKey('todos'), JSON.stringify(todos));
             renderTodos();
         });
         renderTodos();
@@ -1342,7 +1349,7 @@
 
     // ─── Statistics Manager ────────────────────────────────────────────────────
     function getStatsHistory() {
-        try { return JSON.parse(localStorage.getItem('ff_stats_history') || '[]'); }
+        try { return JSON.parse(localStorage.getItem(getKey('stats_history')) || '[]'); }
         catch { return []; }
     }
 
@@ -1358,7 +1365,7 @@
         }
         // Keep last 90 days
         while (history.length > 90) history.shift();
-        localStorage.setItem('ff_stats_history', JSON.stringify(history));
+        localStorage.setItem(getKey('stats_history'), JSON.stringify(history));
     }
 
     function renderStatsModal() {
@@ -1605,6 +1612,299 @@
         renderVipList('gmail', gmailList);
     }
 
+    // ─── Login & Admin Messaging ───────────────────────────────────────────────
+    function initAuth() {
+        const loginBtn = $('#btnLoginSubmit');
+        const loginUser = $('#loginUsername');
+        const loginPass = $('#loginPassword');
+        const loginError = $('#loginError');
+        const loginScreen = $('#loginScreen');
+        const btnContactAdmin = $('#btnContactAdmin');
+        const btnAdminInbox = $('#btnAdminInbox');
+        const btnUserMgmt = $('#btnUserManagement');
+        const btnLogout = $('#btnLogout');
+
+        // ── applyRole: Giriş sonrası UI düzenle ──────────────────────────────
+        function applyRole(role, username, displayName) {
+            if (loginScreen) loginScreen.classList.remove('open');
+
+            // Toolbar butonları
+            if (role === 'admin') {
+                if (btnAdminInbox) btnAdminInbox.style.display = 'flex';
+                if (btnUserMgmt) btnUserMgmt.style.display = 'flex';
+                if (btnContactAdmin) btnContactAdmin.style.display = 'none';
+            } else {
+                if (btnContactAdmin) btnContactAdmin.style.display = 'flex';
+                if (btnAdminInbox) btnAdminInbox.style.display = 'none';
+                if (btnUserMgmt) btnUserMgmt.style.display = 'none';
+            }
+            if (btnLogout) btnLogout.style.display = 'flex';
+
+            // İsim tag'ını güncelle
+            const tag = $('#userNameTag');
+            if (tag) {
+                if (role === 'admin') {
+                    tag.textContent = `Admin (${displayName || 'Admin'})`;
+                } else {
+                    tag.textContent = `Merhaba, ${displayName || username || 'Kullanıcı'} 👋`;
+                }
+            }
+        }
+
+        // ── doLogout ─────────────────────────────────────────────────────────
+        function doLogout() {
+            localStorage.removeItem('ff_role');
+            localStorage.removeItem('ff_username');
+            localStorage.removeItem('ff_displayName');
+            if (btnContactAdmin) btnContactAdmin.style.display = 'none';
+            if (btnAdminInbox) btnAdminInbox.style.display = 'none';
+            if (btnUserMgmt) btnUserMgmt.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'none';
+            if (loginScreen) loginScreen.classList.add('open');
+            if (loginUser) loginUser.value = '';
+            if (loginPass) loginPass.value = '';
+            if (loginError) loginError.style.display = 'none';
+            if (loginBtn) loginBtn.textContent = 'Giriş Yap';
+            const tag = $('#userNameTag');
+            if (tag) tag.textContent = 'Misafir';
+        }
+
+        // ── Oturum kontrolü ───────────────────────────────────────────────────
+        const storedRole = localStorage.getItem('ff_role');
+        const storedUsername = localStorage.getItem('ff_username');
+        const storedDisplayName = localStorage.getItem('ff_displayName');
+        if (storedRole && storedUsername) {
+            applyRole(storedRole, storedUsername, storedDisplayName);
+        } else {
+            if (loginScreen) loginScreen.classList.add('open');
+        }
+
+        // ── Logout butonu ─────────────────────────────────────────────────────
+        btnLogout?.addEventListener('click', doLogout);
+
+        // ── Admin modaller ────────────────────────────────────────────────────
+        $('#btnContactAdmin')?.addEventListener('click', () => openModal('contactAdminModal'));
+        $('#contactAdminClose')?.addEventListener('click', () => closeModal('contactAdminModal'));
+        $('#btnAdminInbox')?.addEventListener('click', () => {
+            fetchAdminMessages();
+            openModal('adminInboxModal');
+        });
+        $('#adminInboxClose')?.addEventListener('click', () => closeModal('adminInboxModal'));
+        $('#btnUserManagement')?.addEventListener('click', () => {
+            fetchUserList();
+            openModal('userManagementModal');
+        });
+        $('#userMgmtClose')?.addEventListener('click', () => closeModal('userManagementModal'));
+
+        // ── Mesaj gönderme ────────────────────────────────────────────────────
+        $('#btnSendAdminMessage')?.addEventListener('click', async () => {
+            const msgInput = $('#contactAdminMessage');
+            if (!msgInput) return;
+            const msg = msgInput.value.trim();
+            if (!msg) return;
+            const btn = $('#btnSendAdminMessage');
+            const status = $('#contactAdminStatus');
+            btn.disabled = true;
+            btn.textContent = 'Gönderiliyor...';
+            try {
+                const displayName = localStorage.getItem('ff_displayName') || localStorage.getItem('ff_username') || 'Bilinmeyen';
+                const res = await fetch('/api/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, user: displayName })
+                });
+                if (res.ok) {
+                    status.style.display = 'block';
+                    status.style.color = '#4ade80';
+                    status.textContent = 'Mesaj başarıyla gönderildi!';
+                    msgInput.value = '';
+                    setTimeout(() => { status.style.display = 'none'; }, 5000);
+                } else {
+                    throw new Error('Gönderim hatası');
+                }
+            } catch (e) {
+                status.style.display = 'block';
+                status.style.color = '#ff6b6b';
+                status.textContent = 'Gönderilemedi.';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Mesajı Gönder';
+        });
+
+        // ── Giriş Handler ─────────────────────────────────────────────────────
+        loginBtn?.addEventListener('click', async () => {
+            const u = loginUser.value.trim().toLowerCase();
+            const p = loginPass.value.trim();
+            if (!u || !p) {
+                loginError.textContent = 'Kullanıcı adı ve şifre girin.';
+                loginError.style.display = 'block';
+                return;
+            }
+            try {
+                loginBtn.textContent = 'Bekleyin...';
+                loginError.style.display = 'none';
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('ff_role', data.role);
+                    localStorage.setItem('ff_username', data.username);
+                    localStorage.setItem('ff_displayName', data.displayName || data.username);
+                    applyRole(data.role, data.username, data.displayName);
+                } else {
+                    loginError.textContent = data.error || 'Hatalı giriş.';
+                    loginError.style.display = 'block';
+                    loginBtn.textContent = 'Giriş Yap';
+                }
+            } catch (e) {
+                loginError.textContent = 'Sunucuya bağlanılamadı.';
+                loginError.style.display = 'block';
+                loginBtn.textContent = 'Giriş Yap';
+            }
+        });
+
+        loginPass?.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+
+        // ── Kayıt Handler ─────────────────────────────────────────────────────
+        const regBtn = $('#btnRegisterSubmit');
+        const regError = $('#registerError');
+        const regSuccess = $('#registerSuccess');
+
+        regBtn?.addEventListener('click', async () => {
+            const displayName = $('#registerDisplayName')?.value.trim();
+            const username = $('#registerUsername')?.value.trim().toLowerCase();
+            const pass = $('#registerPassword')?.value;
+            const pass2 = $('#registerPassword2')?.value;
+
+            regError.style.display = 'none';
+            regSuccess.style.display = 'none';
+
+            if (!username || !pass) {
+                regError.textContent = 'Kullanıcı adı ve şifre gerekli.';
+                regError.style.display = 'block';
+                return;
+            }
+            if (pass !== pass2) {
+                regError.textContent = 'Şifreler uyuşmuyor.';
+                regError.style.display = 'block';
+                return;
+            }
+
+            try {
+                regBtn.textContent = 'Kaydediliyor...';
+                regBtn.disabled = true;
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password: pass, displayName })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    regSuccess.textContent = `✅ Kayıt başarılı! Giriş yapabilirsiniz.`;
+                    regSuccess.style.display = 'block';
+                    // Otomatik giriş
+                    setTimeout(() => {
+                        localStorage.setItem('ff_role', data.role);
+                        localStorage.setItem('ff_username', data.username);
+                        localStorage.setItem('ff_displayName', data.displayName || data.username);
+                        applyRole(data.role, data.username, data.displayName);
+                    }, 1000);
+                } else {
+                    regError.textContent = data.error || 'Kayıt başarısız.';
+                    regError.style.display = 'block';
+                }
+            } catch (e) {
+                regError.textContent = 'Sunucuya bağlanılamadı.';
+                regError.style.display = 'block';
+            }
+            regBtn.textContent = 'Kayıt Ol 🚀';
+            regBtn.disabled = false;
+        });
+
+        $('#registerPassword2')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') regBtn?.click(); });
+    }
+
+    async function fetchAdminMessages() {
+        const list = $('#adminInboxList');
+        if (!list) return;
+        const adminPass = localStorage.getItem('ff_adminpass') || prompt('Admin şifresi:') || '';
+        try {
+            list.innerHTML = '<p style="color:white; text-align:center; padding: 20px;">Yükleniyor...</p>';
+            const res = await fetch('/api/messages', { headers: { 'x-admin-password': adminPass } });
+            const data = await res.json();
+            if (!res.ok) { list.innerHTML = `<p style="color:#ff6b6b;text-align:center;">${data.error}</p>`; return; }
+            if (data.messages && data.messages.length > 0) {
+                list.innerHTML = data.messages.map(m => `
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #a855f7;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 5px;">
+                            ${escHtml(m.user)} — ${new Date(m.time).toLocaleString('tr-TR')}
+                        </div>
+                        <div style="font-size: 15px; color: white;">${escHtml(m.text)}</div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = '<div class="notif-empty"><p>Henüz mesaj yok</p></div>';
+            }
+        } catch (e) {
+            list.innerHTML = '<p style="color:#ff6b6b; text-align:center;">Mesajlar yüklenemedi.</p>';
+        }
+    }
+
+    async function fetchUserList() {
+        const listEl = $('#userMgmtList');
+        const statsEl = $('#userMgmtStats');
+        if (!listEl) return;
+        // Admin şifresini localStorage'a geçici cache'le
+        let adminPass = localStorage.getItem('ff_adminpass') || '';
+        if (!adminPass) {
+            adminPass = prompt('Admin şifresi girin:') || '';
+            if (adminPass) localStorage.setItem('ff_adminpass', adminPass);
+        }
+        listEl.innerHTML = '<p style="color:rgba(255,255,255,0.5);text-align:center;padding:20px;">Yükleniyor...</p>';
+        try {
+            const res = await fetch('/api/users', { headers: { 'x-admin-password': adminPass } });
+            const data = await res.json();
+            if (!res.ok) {
+                listEl.innerHTML = `<p style="color:#ff6b6b;text-align:center;">${data.error}</p>`;
+                return;
+            }
+            const users = data.users || [];
+            if (statsEl) {
+                statsEl.innerHTML = `
+                    <div style="background:rgba(124,106,255,0.15);padding:10px 16px;border-radius:8px;flex:1;text-align:center;">
+                        <div style="font-size:22px;font-weight:700;color:#a78bfa;">${users.length}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.5);">Kayıtlı Kullanıcı</div>
+                    </div>`;
+            }
+            if (users.length === 0) {
+                listEl.innerHTML = '<div class="notif-empty"><p>Henüz kayıtlı kullanıcı yok</p></div>';
+                return;
+            }
+            listEl.innerHTML = users.map(u => `
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.05);padding:12px 16px;border-radius:10px;border-left:3px solid #7c6aff;">
+                    <div style="font-size:22px;">👤</div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600;color:white;">${escHtml(u.displayName || u.username)}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.4);">@${escHtml(u.username)} · ${new Date(u.createdAt).toLocaleDateString('tr-TR')}</div>
+                    </div>
+                    <button data-del-user="${escHtml(u.username)}" style="background:rgba(255,107,107,0.2);color:#ff6b6b;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Sil</button>
+                </div>`).join('');
+            listEl.querySelectorAll('[data-del-user]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const uname = btn.dataset.delUser;
+                    if (!confirm(`"${uname}" silinsin mi?`)) return;
+                    const r = await fetch(`/api/users/${uname}`, { method: 'DELETE', headers: { 'x-admin-password': adminPass } });
+                    if (r.ok) fetchUserList(); else alert('Silinemedi.');
+                });
+            });
+        } catch (e) {
+            listEl.innerHTML = '<p style="color:#ff6b6b;text-align:center;">Yüklenemedi.</p>';
+        }
+    }
+
     // ─── Init ──────────────────────────────────────────────────────────────────
     function init() {
         // Clock
@@ -1644,24 +1944,30 @@
         initTodo(scheduleTodoPush);
         initAmbient();
         initCalendar();
+        initAuth();
 
-        // Onboarding (isim sorma)
-        initOnboarding();
-
-        // Ad değiştir butonu
+        // ─── İsimlendirme ────────────────────────────────────────────────────────
+        // Ad butonu: displayName göster/güncelle
         $('#btnName')?.addEventListener('click', () => {
-            const cur = loadUserName();
+            const cur = localStorage.getItem('ff_displayName') || '';
             const input = $('#onboardingNameInput');
             if (input) input.value = cur;
-            openModal('onboardingModal');
-            // Butonu güncelle
             const btn = $('#onboardingStartBtn');
             if (btn) btn.textContent = 'Güncelle ✅';
-            // Kapandığında eski metni geri yükle
-            const handler = () => {
-                if (btn) btn.textContent = 'BaşlayaLım 🚀';
-                input?.removeEventListener('keydown', handler);
-            };
+            openModal('onboardingModal');
+        });
+
+        $('#onboardingStartBtn')?.addEventListener('click', () => {
+            const name = $('#onboardingNameInput')?.value.trim();
+            if (name) {
+                localStorage.setItem('ff_displayName', name);
+                const tag = $('#userNameTag');
+                const role = localStorage.getItem('ff_role');
+                if (tag) {
+                    tag.textContent = role === 'admin' ? `Admin (${name})` : `Merhaba, ${name} 👋`;
+                }
+                closeModal('onboardingModal');
+            }
         });
 
         // Timer buttons

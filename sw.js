@@ -1,6 +1,6 @@
-// FocusFlow Service Worker v3.0
+// FocusFlow Service Worker v3.2
 // Hem çevrimdışı cache hem de arka plan Web Push bildirimleri
-const CACHE_NAME = 'focusflow-v3';
+const CACHE_NAME = 'focusflow-v3.2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
