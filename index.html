@@ -39,78 +39,13 @@
 
 <body>
 
-    <!-- ═══ LOGIN SCREEN ═══ -->
-    <div class="modal-overlay open" id="loginScreen" style="z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); background: rgba(10, 10, 26, 0.85);">
-        <div class="modal-content glass-card" style="max-width: 420px; width: 90%; text-align: center; padding: 2.5rem 2rem;">
-            <div style="font-size: 36px; margin-bottom: 0.5rem;">⏱</div>
-            <h2 style="margin-bottom: 0.3rem; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #a855f7, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">FocusFlow</h2>
-            <p style="margin-bottom: 1.5rem; color: rgba(255,255,255,0.5); font-size: 13px;">Pomodoro tekniğiyle odaklan, hedeflerine ulaş.</p>
 
-            <!-- Sekmeler -->
-            <div style="display: flex; gap: 0; margin-bottom: 1.5rem; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
-                <button id="tabLoginBtn" onclick="switchAuthTab('login')" style="flex:1; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: linear-gradient(135deg, #7c6aff, #a855f7); color: white; transition: all 0.2s;">Giriş Yap</button>
-                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" style="flex:1; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); transition: all 0.2s;">Kayıt Ol</button>
-            </div>
 
-            <!-- Giriş Formu -->
-            <div id="loginForm">
-                <div style="margin-bottom: 1rem;">
-                    <input type="text" id="loginUsername" placeholder="Kullanıcı adı" autocomplete="username" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                </div>
-                <div style="margin-bottom: 1.2rem;">
-                    <input type="password" id="loginPassword" placeholder="Şifre" autocomplete="current-password" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                </div>
-                <p id="loginError" style="display:none; color: #ff6b6b; margin-bottom: 12px; font-size: 13px;"></p>
-                <button id="btnLoginSubmit" style="width: 100%; background: linear-gradient(135deg, #7c6aff, #a855f7); color: white; border: none; padding: 13px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;">Giriş Yap</button>
-                <p style="margin-top: 1rem; font-size: 12px; color: rgba(255,255,255,0.35);">Hesabın yok mu? <span onclick="switchAuthTab('register')" style="color: #a855f7; cursor: pointer;">Kayıt Ol</span></p>
-            </div>
 
-            <!-- Kayıt Formu -->
-            <div id="registerForm" style="display:none;">
-                <div style="margin-bottom: 0.9rem;">
-                    <input type="text" id="registerDisplayName" placeholder="Adın (görünecek isim, örn: Fatma)" maxlength="40" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                </div>
-                <div style="margin-bottom: 0.9rem;">
-                    <input type="text" id="registerUsername" placeholder="Kullanıcı adı (örn: fatma123)" maxlength="20" autocomplete="username" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                    <p style="font-size: 11px; color: rgba(255,255,255,0.35); text-align: left; margin-top: 4px; padding-left: 2px;">Harf, rakam ve _ kullanılabilir (3-20 karakter)</p>
-                </div>
-                <div style="margin-bottom: 0.9rem;">
-                    <input type="password" id="registerPassword" placeholder="Şifre (en az 4 karakter)" autocomplete="new-password" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                </div>
-                <div style="margin-bottom: 1.2rem;">
-                    <input type="password" id="registerPassword2" placeholder="Şifre tekrar" autocomplete="new-password" style="width: 100%; padding: 13px 14px; font-size: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
-                </div>
-                <p id="registerError" style="display:none; color: #ff6b6b; margin-bottom: 12px; font-size: 13px;"></p>
-                <p id="registerSuccess" style="display:none; color: #4ade80; margin-bottom: 12px; font-size: 13px;"></p>
-                <button id="btnRegisterSubmit" style="width: 100%; background: linear-gradient(135deg, #4ade80, #22d3ee); color: #0a0a1a; border: none; padding: 13px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;">Kayıt Ol 🚀</button>
-                <p style="margin-top: 1rem; font-size: 12px; color: rgba(255,255,255,0.35);">Hesabın var mı? <span onclick="switchAuthTab('login')" style="color: #a855f7; cursor: pointer;">Giriş Yap</span></p>
-            </div>
-        </div>
-    </div>
 
-    <script>
-    function switchAuthTab(tab) {
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        const tabLoginBtn = document.getElementById('tabLoginBtn');
-        const tabRegisterBtn = document.getElementById('tabRegisterBtn');
-        if (tab === 'login') {
-            loginForm.style.display = 'block';
-            registerForm.style.display = 'none';
-            tabLoginBtn.style.background = 'linear-gradient(135deg, #7c6aff, #a855f7)';
-            tabLoginBtn.style.color = 'white';
-            tabRegisterBtn.style.background = 'rgba(255,255,255,0.07)';
-            tabRegisterBtn.style.color = 'rgba(255,255,255,0.6)';
-        } else {
-            loginForm.style.display = 'none';
-            registerForm.style.display = 'block';
-            tabRegisterBtn.style.background = 'linear-gradient(135deg, #4ade80, #22d3ee)';
-            tabRegisterBtn.style.color = '#0a0a1a';
-            tabLoginBtn.style.background = 'rgba(255,255,255,0.07)';
-            tabLoginBtn.style.color = 'rgba(255,255,255,0.6)';
-        }
-    }
-    </script>
+
+
+
 
     <!-- Animated Background -->
     <div class="bg-layer" id="bgLayer">
@@ -408,36 +343,7 @@
             </svg>
             <span>Adım</span>
         </button>
-        <button class="toolbar-btn" id="btnContactAdmin" title="Admin'e Ulaş" style="display:none;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span>İstek Bildir</span>
-        </button>
-        <button class="toolbar-btn" id="btnAdminInbox" title="Admin Gelen Kutusu" style="display:none; background: rgba(255, 107, 107, 0.15); color: #ff6b6b;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-                <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-            </svg>
-            <span>Gelen Kutusu</span>
-        </button>
-        <button class="toolbar-btn" id="btnUserManagement" title="Kullanıcı Yönetimi" style="display:none; background: rgba(124, 106, 255, 0.15); color: #a78bfa;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            <span>Kullanıcılar</span>
-        </button>
-        <button class="toolbar-btn" id="btnLogout" title="Çıkış Yap" style="display:none; background: rgba(255, 107, 107, 0.15); color: #ff6b6b;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            <span>Çıkış</span>
-        </button>
+
     </nav>
 
     <!-- ═══ MODALS ═══ -->

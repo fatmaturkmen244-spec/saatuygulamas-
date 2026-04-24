@@ -1944,7 +1944,6 @@
         initTodo(scheduleTodoPush);
         initAmbient();
         initCalendar();
-        initAuth();
 
         // ─── İsimlendirme ────────────────────────────────────────────────────────
         // Ad butonu: displayName göster/güncelle
