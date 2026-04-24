@@ -1946,26 +1946,65 @@
         initCalendar();
 
         // ─── İsimlendirme ────────────────────────────────────────────────────────
-        // Ad butonu: displayName göster/güncelle
+        // Her tarayıcıya bir kez rastgele UUID atanır — sunucuya sadece bu gider.
+        // Gerçek isim hiç backend'e gitmez; sadece bcrypt hash gönderilir.
+        function getOrCreateSessionId() {
+            let sid = localStorage.getItem('ff_session_id');
+            if (!sid) {
+                // crypto.randomUUID desteği yoksa manuel UUID üret
+                sid = typeof crypto !== 'undefined' && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                        const r = Math.random() * 16 | 0;
+                        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                    });
+                localStorage.setItem('ff_session_id', sid);
+            }
+            return sid;
+        }
+
+        // Sayfa yüklenince isim tag'ını güncelle
+        const savedName = localStorage.getItem('ff_displayName');
+        const nameTag = $('#userNameTag');
+        if (savedName && nameTag) {
+            nameTag.textContent = `Merhaba, ${savedName} 👋`;
+        }
+
+        // Ad butonu: modal aç
         $('#btnName')?.addEventListener('click', () => {
             const cur = localStorage.getItem('ff_displayName') || '';
             const input = $('#onboardingNameInput');
             if (input) input.value = cur;
             const btn = $('#onboardingStartBtn');
-            if (btn) btn.textContent = 'Güncelle ✅';
+            if (btn) btn.textContent = cur ? 'Güncelle ✅' : 'Başlayalım 🚀';
             openModal('onboardingModal');
         });
 
-        $('#onboardingStartBtn')?.addEventListener('click', () => {
+        // "Kaydet" butonuna basılınca:
+        $('#onboardingStartBtn')?.addEventListener('click', async () => {
             const name = $('#onboardingNameInput')?.value.trim();
-            if (name) {
-                localStorage.setItem('ff_displayName', name);
-                const tag = $('#userNameTag');
-                const role = localStorage.getItem('ff_role');
-                if (tag) {
-                    tag.textContent = role === 'admin' ? `Admin (${name})` : `Merhaba, ${name} 👋`;
-                }
-                closeModal('onboardingModal');
+            if (!name) return;
+
+            // 1. LocalStorage'a kaydet (ekranda görünmesi için)
+            localStorage.setItem('ff_displayName', name);
+            const tag = $('#userNameTag');
+            if (tag) tag.textContent = `Merhaba, ${name} 👋`;
+            closeModal('onboardingModal');
+
+            // 2. Backend'e SADECE sessionId gönder — isim gitmez
+            //    Backend kendi tarafında bir hash kaydı tutar (anonim istatistik)
+            //    İsmi backend'e göndermek istersen bile hash'lenmiş gidecek
+            const sessionId = getOrCreateSessionId();
+            try {
+                await fetch('/api/ping-name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // name hash'lenerek gider — DB'de plain text olmaz
+                    body: JSON.stringify({ sessionId, name })
+                });
+            } catch (e) {
+                // Ağ hatası olsa da uygulama çalışmaya devam eder
+                console.warn('[FocusFlow] ping-name gönderilemedi:', e.message);
             }
         });
 

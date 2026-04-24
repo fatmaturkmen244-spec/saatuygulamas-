@@ -1,53 +1,62 @@
 require('dotenv').config();
-const express = require('express');
+const express    = require('express');
 const serverless = require('serverless-http');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const cors = require('cors');
+const mongoose   = require('mongoose');
+const bcrypt     = require('bcryptjs');
+const cors       = require('cors');
 const nodemailer = require('nodemailer');
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// ─── Database Connection ────────────────────────────────────────────────────
+// ─── MongoDB ────────────────────────────────────────────────────────────────
 let isConnected = false;
-
 const connectDB = async () => {
     if (isConnected) return;
     try {
         const uri = process.env.MONGO_URI;
-        if (!uri) throw new Error('MONGO_URI is missing');
+        if (!uri) throw new Error('MONGO_URI env eksik');
         await mongoose.connect(uri);
         isConnected = true;
-        console.log('✅ MongoDB connected');
+        console.log('✅ MongoDB bağlandı');
     } catch (err) {
-        console.error('❌ MongoDB connection error:', err);
+        console.error('❌ MongoDB hatası:', err.message);
     }
 };
 
-// ─── Models ─────────────────────────────────────────────────────────────────
+// ─── Modeller ───────────────────────────────────────────────────────────────
 
-// User Model
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true },
-    role: { type: String, default: 'user', enum: ['user', 'admin'] },
-    displayName: { type: String, default: '' },
-    createdAt: { type: Date, default: Date.now }
+/**
+ * Visitor (Ziyaretçi) Modeli
+ * ─────────────────────────────────────────────────────────────────────────────
+ * nameHash  → bcrypt ile tek yönlü hash'lenmiş isim.
+ *             Veritabanına sızan biri sadece hash görür, gerçek ismi okuyamaz.
+ * sessionId → Tarayıcıya verilen rastgele UUID. Kullanıcıyı takip etmez,
+ *             sadece aynı oturumun tekrar kayıt yapmasını önler.
+ * visitedAt → İlk giriş zamanı.
+ */
+const visitorSchema = new mongoose.Schema({
+    sessionId: { type: String, required: true, unique: true, index: true },
+    nameHash:  { type: String, required: true },   // bcrypt hash — plain text yok
+    visitedAt: { type: Date, default: Date.now }
 });
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Visitor = mongoose.models.Visitor || mongoose.model('Visitor', visitorSchema);
 
-// Message Model
+/**
+ * Message (Geri Bildirim) Modeli
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Kullanıcının gönderdiği istek/öneri mesajları.
+ * user alanı hash'lenmiş session ID'si, gerçek isim değil.
+ */
 const messageSchema = new mongoose.Schema({
-    user: { type: String, required: true },
-    text: { type: String, required: true },
-    time: { type: Date, default: Date.now }
+    sessionId: { type: String, default: 'anonim' },
+    text:      { type: String, required: true },
+    time:      { type: Date, default: Date.now }
 });
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 
-// ─── Nodemailer Transporter ─────────────────────────────────────────────────
+// ─── Nodemailer ──────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -56,214 +65,145 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// ─── API Endpoints ──────────────────────────────────────────────────────────
+// ─── Yardımcılar ─────────────────────────────────────────────────────────────
 
+/** Admin şifresini .env ile karşılaştır */
+function isAdmin(req) {
+    const pass = req.headers['x-admin-password'] || '';
+    const env  = process.env.ADMIN_PASSWORD || '';
+    return env !== '' && pass === env;
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 const router = express.Router();
 
-// ── POST /register — Yeni kullanıcı kaydı ──────────────────────────────────
-router.post('/register', async (req, res) => {
+// ── POST /ping-name ──────────────────────────────────────────────────────────
+/**
+ * Kullanıcı ismini güvenli şekilde veritabanına kaydeder.
+ *
+ * Frontend şunu gönderir:
+ *   { sessionId: "<uuid>", name: "Fatma" }
+ *
+ * Backend şunu yapar:
+ *   1. name → bcrypt.hash(name, 10)   ← DB'ye sadece hash gider
+ *   2. Aynı sessionId varsa hash'i günceller (isim değişikliği)
+ *   3. Yeni sessionId ise yeni kayıt oluşturur
+ *
+ * DB'ye sızan biri ne görür?
+ *   { sessionId: "550e8400-...", nameHash: "$2a$10$...", visitedAt: "..." }
+ *   Gerçek isim (ör. "Fatma") hiçbir yerde YOK.
+ */
+router.post('/ping-name', async (req, res) => {
     await connectDB();
-    const { username, password, displayName } = req.body;
+    const { sessionId, name } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
+    if (!sessionId || !name || typeof name !== 'string') {
+        return res.status(400).json({ error: 'sessionId ve name gerekli' });
     }
 
-    // Kullanıcı adı kuralları
-    const usernameClean = username.toLowerCase().trim();
-    if (usernameClean === 'admin') {
-        return res.status(400).json({ error: 'Bu kullanıcı adı kullanılamaz' });
-    }
-    if (usernameClean.length < 3 || usernameClean.length > 20) {
-        return res.status(400).json({ error: 'Kullanıcı adı 3-20 karakter olmalı' });
-    }
-    if (!/^[a-z0-9_]+$/.test(usernameClean)) {
-        return res.status(400).json({ error: 'Kullanıcı adı sadece harf, rakam ve _ içerebilir' });
-    }
-    if (password.length < 4) {
-        return res.status(400).json({ error: 'Şifre en az 4 karakter olmalı' });
+    const cleanName = name.trim().slice(0, 50); // max 50 karakter
+    if (cleanName.length < 1) {
+        return res.status(400).json({ error: 'İsim boş olamaz' });
     }
 
     try {
-        // Kullanıcı zaten var mı?
-        const existing = await User.findOne({ username: usernameClean });
-        if (existing) {
-            return res.status(409).json({ error: 'Bu kullanıcı adı zaten alınmış' });
-        }
+        // bcrypt ile hash — 10 round, tek yönlü, geri çevrilemez
+        const nameHash = await bcrypt.hash(cleanName, 10);
 
-        // Şifreyi hash'le
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
+        await Visitor.findOneAndUpdate(
+            { sessionId },
+            { nameHash, visitedAt: new Date() },
+            { upsert: true, new: true }
+        );
 
-        const newUser = new User({
-            username: usernameClean,
-            passwordHash,
-            displayName: displayName?.trim() || usernameClean,
-            role: 'user'
-        });
-        await newUser.save();
-
-        res.json({
-            success: true,
-            username: newUser.username,
-            displayName: newUser.displayName,
-            role: newUser.role
-        });
-    } catch (err) {
-        console.error('Register error:', err);
-        res.status(500).json({ error: 'Kayıt sırasında bir hata oluştu' });
-    }
-});
-
-// ── POST /login — Giriş ────────────────────────────────────────────────────
-router.post('/login', async (req, res) => {
-    await connectDB();
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
-    }
-
-    const usernameClean = username.toLowerCase().trim();
-
-    // ── Admin girişi (.env üzerinden) ──────────────────────────────────────
-    if (usernameClean === 'admin') {
-        const secureAdminPass = process.env.ADMIN_PASSWORD;
-        if (!secureAdminPass) {
-            return res.status(500).json({ error: 'ADMIN_PASSWORD Netlify panelinden ayarlanmamış' });
-        }
-        if (password === secureAdminPass) {
-            return res.json({
-                success: true,
-                role: 'admin',
-                username: 'admin',
-                displayName: 'Admin'
-            });
-        } else {
-            return res.status(401).json({ error: 'Hatalı admin şifresi' });
-        }
-    }
-
-    // ── Normal kullanıcı girişi ─────────────────────────────────────────────
-    try {
-        const user = await User.findOne({ username: usernameClean });
-        if (!user) {
-            return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
-        }
-
-        const match = await bcrypt.compare(password, user.passwordHash);
-        if (!match) {
-            return res.status(401).json({ error: 'Şifre hatalı' });
-        }
-
-        res.json({
-            success: true,
-            role: user.role,
-            username: user.username,
-            displayName: user.displayName || user.username
-        });
-    } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json({ error: 'Giriş sırasında bir hata oluştu' });
-    }
-});
-
-// ── GET /users — Tüm kullanıcıları listele (sadece admin) ──────────────────
-router.get('/users', async (req, res) => {
-    await connectDB();
-    // Basit admin doğrulaması: header'da admin şifresi bekliyoruz
-    const adminPass = req.headers['x-admin-password'];
-    if (!adminPass || adminPass !== process.env.ADMIN_PASSWORD) {
-        return res.status(403).json({ error: 'Yetkisiz erişim' });
-    }
-
-    try {
-        const users = await User.find({}, { passwordHash: 0 }).sort({ createdAt: -1 });
-        res.json({ users });
-    } catch (err) {
-        console.error('Fetch users error:', err);
-        res.status(500).json({ error: 'Kullanıcılar yüklenemedi' });
-    }
-});
-
-// ── DELETE /users/:username — Kullanıcı sil (sadece admin) ────────────────
-router.delete('/users/:username', async (req, res) => {
-    await connectDB();
-    const adminPass = req.headers['x-admin-password'];
-    if (!adminPass || adminPass !== process.env.ADMIN_PASSWORD) {
-        return res.status(403).json({ error: 'Yetkisiz erişim' });
-    }
-
-    const targetUser = req.params.username.toLowerCase();
-    if (targetUser === 'admin') {
-        return res.status(400).json({ error: 'Admin hesabı silinemez' });
-    }
-
-    try {
-        const result = await User.deleteOne({ username: targetUser });
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-        }
         res.json({ success: true });
     } catch (err) {
-        console.error('Delete user error:', err);
-        res.status(500).json({ error: 'Kullanıcı silinemedi' });
+        console.error('ping-name hatası:', err.message);
+        res.status(500).json({ error: 'Sunucu hatası' });
     }
 });
 
-// ── POST /send-message ──────────────────────────────────────────────────────
+// ── POST /send-message ────────────────────────────────────────────────────────
+/**
+ * Kullanıcının admin'e gönderdiği geri bildirim mesajı.
+ * sessionId ile kaydedilir — DB'de isim değil session ID görünür.
+ */
 router.post('/send-message', async (req, res) => {
     await connectDB();
-    const { message, user } = req.body;
+    const { message, sessionId } = req.body;
 
-    if (!message) {
+    if (!message || typeof message !== 'string' || !message.trim()) {
         return res.status(400).json({ error: 'Mesaj boş olamaz' });
     }
 
     try {
-        const newMessage = new Message({
-            user: user || 'Bilinmeyen Kullanıcı',
-            text: message
+        const doc = new Message({
+            sessionId: sessionId || 'anonim',
+            text: message.trim().slice(0, 2000)
         });
-        await newMessage.save();
+        await doc.save();
 
+        // E-posta gönder (opsiyonel, .env ayarlıysa)
         if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
             try {
                 await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: 'fatmaturkmen244@gmail.com',
-                    subject: `FocusFlow - Yeni İstek/Öneri (${newMessage.user})`,
-                    text: `Kullanıcı: ${newMessage.user}\nTarih: ${new Date(newMessage.time).toLocaleString('tr-TR')}\n\nMesaj:\n${newMessage.text}`
+                    from:    process.env.EMAIL_USER,
+                    to:      'fatmaturkmen244@gmail.com',
+                    subject: `FocusFlow — Yeni Geri Bildirim`,
+                    text:    `Tarih: ${new Date().toLocaleString('tr-TR')}\nSession: ${doc.sessionId}\n\n${doc.text}`
                 });
             } catch (mailErr) {
-                console.error('[Email] Gönderim hatası:', mailErr);
+                console.error('[E-posta] Gönderilemedi:', mailErr.message);
             }
         }
 
         res.json({ success: true });
     } catch (err) {
-        console.error('Send message error:', err);
-        res.status(500).json({ error: 'Sunucu hatası oluştu' });
+        console.error('send-message hatası:', err.message);
+        res.status(500).json({ error: 'Sunucu hatası' });
     }
 });
 
-// ── GET /messages ───────────────────────────────────────────────────────────
+// ── GET /messages  (sadece admin) ────────────────────────────────────────────
 router.get('/messages', async (req, res) => {
     await connectDB();
-    const adminPass = req.headers['x-admin-password'];
-    if (!adminPass || adminPass !== process.env.ADMIN_PASSWORD) {
+    if (!isAdmin(req)) {
         return res.status(403).json({ error: 'Yetkisiz erişim' });
     }
     try {
-        const messages = await Message.find().sort({ time: -1 }).limit(100);
+        const messages = await Message.find()
+            .sort({ time: -1 })
+            .limit(200)
+            .select('-__v');
         res.json({ messages });
     } catch (err) {
-        console.error('Fetch messages error:', err);
-        res.status(500).json({ error: 'Sunucu hatası oluştu' });
+        console.error('messages hatası:', err.message);
+        res.status(500).json({ error: 'Sunucu hatası' });
     }
 });
 
-// Netlify Functions routing
+// ── GET /visitors/count  (sadece admin) ──────────────────────────────────────
+/**
+ * Kaç ziyaretçi isim girdi? (Sayı verir, isimler vermez — güvenli)
+ */
+router.get('/visitors/count', async (req, res) => {
+    await connectDB();
+    if (!isAdmin(req)) {
+        return res.status(403).json({ error: 'Yetkisiz erişim' });
+    }
+    try {
+        const total = await Visitor.countDocuments();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayCount = await Visitor.countDocuments({ visitedAt: { $gte: today } });
+        res.json({ total, today: todayCount });
+    } catch (err) {
+        console.error('visitors/count hatası:', err.message);
+        res.status(500).json({ error: 'Sunucu hatası' });
+    }
+});
+
+// ─── Netlify Functions routing ────────────────────────────────────────────────
 app.use('/', router);
 app.use('/api', router);
 app.use('/api/', router);
